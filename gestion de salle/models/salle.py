@@ -41,7 +41,7 @@ class Salle:
 
     @property
     def equipements(self) -> list[str]:
-        return list(self.__equipements)          # Copie défensive
+        return list(self.__equipements)          
 
     @property
     def disponible(self) -> bool:
