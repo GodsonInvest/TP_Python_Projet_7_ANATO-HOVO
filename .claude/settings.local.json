@@ -3,7 +3,8 @@
     "allow": [
       "Bash(python tests/test_persistance.py)",
       "Bash(python -c \"import ast, sys; f=open\\('tests/test_persistance.py',encoding='utf-8'\\).read\\(\\); print\\('OK'\\)\")",
-      "Bash(python -X utf8 -c ' *)"
+      "Bash(python -X utf8 -c ' *)",
+      "Bash(python -c \"import app; print\\('OK'\\)\")"
     ]
   }
 }

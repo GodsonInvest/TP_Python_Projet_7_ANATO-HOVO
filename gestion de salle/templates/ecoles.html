@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+{% block title %}Écoles & Facultés{% endblock %}
+{% block heading %}Écoles & Facultés{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- En-tête -->
+  <div class="flex items-center justify-between">
+    <p class="text-slate-500 text-sm">{{ ecoles|length }} établissement(s) enregistré(s)</p>
+    <a href="{{ url_for('ecoles_ajouter') }}" class="btn-primary">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+      </svg>
+      Ajouter un établissement
+    </a>
+  </div>
+
+  {% if ecoles %}
+  <div class="space-y-4">
+    {% for e in ecoles %}
+    {% set filieres = filieres_par_ecole.get(e.id, []) %}
+    <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+
+      <!-- En-tête établissement -->
+      <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-4 min-w-0">
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
+            {% if e.type == 'faculte' %}bg-violet-100{% else %}bg-indigo-100{% endif %}">
+            <svg style="width:20px;height:20px" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"
+              class="{% if e.type == 'faculte' %}text-violet-600{% else %}text-indigo-600{% endif %}">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5"/>
+            </svg>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <p class="font-semibold text-slate-800">{{ e.nom }}</p>
+              {% if e.abreviation %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-bold tracking-wide
+                  {% if e.type == 'faculte' %}bg-violet-100 text-violet-700{% else %}bg-indigo-100 text-indigo-700{% endif %}">
+                  {{ e.abreviation }}
+                </span>
+              {% endif %}
+              {% if e.type == 'faculte' %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-50 text-violet-600">Faculté</span>
+              {% else %}
+                <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-600">École</span>
+              {% endif %}
+              <span class="text-slate-300 text-xs">·</span>
+              <span class="text-slate-400 text-xs">{{ filieres|length }} filière(s)</span>
+            </div>
+            {% if e.description %}
+            <p class="text-xs text-slate-400 mt-0.5 truncate">{{ e.description }}</p>
+            {% endif %}
+          </div>
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <a href="{{ url_for('unites_ajouter', ecole_id=e.id) }}" class="btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+            + Filière
+          </a>
+          <a href="{{ url_for('ecoles_modifier', ecole_id=e.id) }}" class="btn-secondary" style="font-size:0.8rem;padding:0.35rem 0.75rem">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+            Modifier
+          </a>
+          <form method="POST" action="{{ url_for('ecoles_supprimer', ecole_id=e.id) }}"
+                onsubmit="return confirm('Supprimer « {{ e.nom }} » et toutes ses unités ?')">
+            <button type="submit" class="btn-danger" style="font-size:0.8rem;padding:0.35rem 0.75rem">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              Supprimer
+            </button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Liste des filières -->
+      <div class="divide-y divide-slate-50">
+        {% if filieres %}
+          {% for f in filieres %}
+          <div class="px-6 py-3.5 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3 min-w-0">
+              <!-- Icône cycle -->
+              <div class="w-9 h-9 rounded-lg flex items-center justify-center shrink-0
+                {% if f.cycle == 'Licence' %}bg-emerald-50{% else %}bg-amber-50{% endif %}">
+                <svg style="width:16px;height:16px" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"
+                  class="{% if f.cycle == 'Licence' %}text-emerald-600{% else %}text-amber-600{% endif %}">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                </svg>
+              </div>
+              <div class="min-w-0">
+                <!-- Nom + abréviation -->
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="text-sm font-semibold text-slate-700">{{ f.nom }}</p>
+                  {% if f.abreviation %}
+                    <span class="px-1.5 py-0.5 rounded text-xs font-bold tracking-wide
+                      {% if f.cycle == 'Licence' %}bg-emerald-100 text-emerald-700{% else %}bg-amber-100 text-amber-700{% endif %}">
+                      {{ f.abreviation }}
+                    </span>
+                  {% endif %}
+                </div>
+                <!-- Niveaux -->
+                <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+                  <span class="text-xs text-slate-400 mr-0.5">{{ f.cycle }} ·</span>
+                  {% for niv in f.niveaux %}
+                    <span class="px-1.5 py-0.5 rounded text-xs font-bold
+                      {% if niv.startswith('L') %}bg-emerald-50 text-emerald-600{% else %}bg-amber-50 text-amber-600{% endif %}">
+                      {{ niv }}
+                    </span>
+                  {% endfor %}
+                </div>
+              </div>
+            </div>
+            <!-- Actions filière -->
+            <div class="flex items-center gap-1 shrink-0">
+              <a href="{{ url_for('filieres_modifier', ecole_id=e.id, nom=f.nom) }}"
+                 class="text-xs text-slate-400 hover:text-indigo-600 transition px-2.5 py-1.5 rounded-lg hover:bg-indigo-50">
+                Modifier
+              </a>
+              <form method="POST" action="{{ url_for('filieres_supprimer', ecole_id=e.id) }}"
+                    onsubmit="return confirm('Supprimer la filière « {{ f.nom }} » et tous ses niveaux ?')">
+                <input type="hidden" name="nom" value="{{ f.nom }}"/>
+                <button type="submit"
+                  class="text-xs text-slate-400 hover:text-red-600 transition px-2.5 py-1.5 rounded-lg hover:bg-red-50">
+                  Supprimer
+                </button>
+              </form>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="px-6 py-6 flex items-center justify-between">
+            <p class="text-sm text-slate-400 italic">Aucune filière pour l'instant.</p>
+            <a href="{{ url_for('unites_ajouter', ecole_id=e.id) }}"
+               class="text-sm text-indigo-600 hover:text-indigo-800 font-medium transition">+ Ajouter une filière</a>
+          </div>
+        {% endif %}
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <!-- État vide -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm py-16 text-center">
+    <div class="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto mb-4">
+      <svg style="width:28px;height:28px;color:#6366f1" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5z"/>
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14zm-4 6v-7.5"/>
+      </svg>
+    </div>
+    <p class="text-slate-600 font-semibold mb-1">Aucun établissement enregistré</p>
+    <p class="text-slate-400 text-sm mb-5">Ajoutez des écoles ou facultés, puis créez leurs filières. Elles apparaîtront lors de l'inscription.</p>
+    <a href="{{ url_for('ecoles_ajouter') }}" class="btn-primary">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+      Ajouter un établissement
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

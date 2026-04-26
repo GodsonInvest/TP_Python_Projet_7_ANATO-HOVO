@@ -3,51 +3,54 @@
 {% block heading %}{{ action }} une salle{% endblock %}
 
 {% block content %}
-<div class="max-w-lg">
-  <div class="bg-white rounded-xl shadow-sm border px-8 py-6">
-    <form method="POST" class="space-y-5">
+<div class="max-w-xl">
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+      <p class="text-sm text-slate-500">Remplissez les informations de la salle.</p>
+    </div>
+    <div class="px-6 py-6">
+      <form method="POST" class="space-y-5">
 
-      <div>
-        <label for="nom" class="block text-sm font-medium text-gray-700 mb-1">Nom de la salle <span class="text-red-500">*</span></label>
-        <input
-          type="text" id="nom" name="nom" required
-          value="{{ salle.nom if salle else '' }}"
-          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-          placeholder="ex : Amphi A"
-        />
-      </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            Nom de la salle <span class="text-red-500">*</span>
+          </label>
+          <input type="text" name="nom" required
+            value="{{ salle.nom if salle else '' }}"
+            placeholder="ex : Amphi A"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+        </div>
 
-      <div>
-        <label for="capacite" class="block text-sm font-medium text-gray-700 mb-1">Capacité <span class="text-red-500">*</span></label>
-        <input
-          type="number" id="capacite" name="capacite" required min="1"
-          value="{{ salle.capacite if salle else '' }}"
-          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-          placeholder="ex : 50"
-        />
-      </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">
+            Capacité (places) <span class="text-red-500">*</span>
+          </label>
+          <div class="relative">
+            <input type="number" name="capacite" required min="1"
+              value="{{ salle.capacite if salle else '' }}"
+              placeholder="ex : 50"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          </div>
+        </div>
 
-      <div>
-        <label for="equipements" class="block text-sm font-medium text-gray-700 mb-1">Équipements</label>
-        <input
-          type="text" id="equipements" name="equipements"
-          value="{{ salle.equipements | join(', ') if salle else '' }}"
-          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-          placeholder="Projecteur, Tableau blanc, Climatisation"
-        />
-        <p class="mt-1 text-xs text-gray-400">Séparez les équipements par des virgules.</p>
-      </div>
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Équipements</label>
+          <input type="text" name="equipements"
+            value="{{ salle.equipements | join(', ') if salle else '' }}"
+            placeholder="Projecteur, Tableau blanc, Climatisation"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          <p class="mt-1.5 text-xs text-slate-400">Séparez les équipements par des virgules.</p>
+        </div>
 
-      <div class="flex items-center gap-3 pt-2">
-        <button
-          type="submit"
-          class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
-          {{ action }}
-        </button>
-        <a href="{{ url_for('salles') }}"
-           class="text-sm text-gray-500 hover:text-gray-700 transition">Annuler</a>
-      </div>
-    </form>
+        <div class="flex items-center gap-3 pt-2 border-t border-slate-100">
+          <button type="submit" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            {{ action }}
+          </button>
+          <a href="{{ url_for('salles') }}" class="btn-secondary">Annuler</a>
+        </div>
+      </form>
+    </div>
   </div>
 </div>
 {% endblock %}

@@ -3,61 +3,88 @@
 {% block heading %}Tableau de bord{% endblock %}
 
 {% block content %}
-<!-- Stat cards -->
-<div class="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
-  <div class="bg-white rounded-xl shadow-sm border p-5">
-    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Salles</p>
-    <p class="mt-2 text-3xl font-bold text-indigo-700">{{ nb_salles }}</p>
+<!-- Stats -->
+<div class="grid grid-cols-2 xl:grid-cols-4 gap-5 mb-7">
+
+  {% set stats = [
+    ('bg-indigo-500', 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', 'Salles', nb_salles, ''),
+    ('bg-violet-500', 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', 'Utilisateurs', nb_utilisateurs, ''),
+    ('bg-emerald-500', 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', 'Confirmées', nb_confirmees, ''),
+    ('bg-amber-500', 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', "Aujourd'hui", nb_ce_jour, ''),
+  ] %}
+
+  {% for color, icon, label, value, _ in stats %}
+  <div class="stat-card bg-white rounded-xl border border-slate-200 shadow-sm p-5 cursor-default">
+    <div class="flex items-start justify-between mb-4">
+      <div class="w-10 h-10 {{ color }} rounded-xl flex items-center justify-center shadow-sm">
+        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon }}"/>
+        </svg>
+      </div>
+    </div>
+    <p class="text-3xl font-bold text-slate-800 mb-1">{{ value }}</p>
+    <p class="text-sm text-slate-500 font-medium">{{ label }}</p>
   </div>
-  <div class="bg-white rounded-xl shadow-sm border p-5">
-    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Utilisateurs</p>
-    <p class="mt-2 text-3xl font-bold text-indigo-700">{{ nb_utilisateurs }}</p>
-  </div>
-  <div class="bg-white rounded-xl shadow-sm border p-5">
-    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Réservations confirmées</p>
-    <p class="mt-2 text-3xl font-bold text-green-600">{{ nb_confirmees }}</p>
-  </div>
-  <div class="bg-white rounded-xl shadow-sm border p-5">
-    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Cours aujourd'hui</p>
-    <p class="mt-2 text-3xl font-bold text-yellow-500">{{ nb_ce_jour }}</p>
-  </div>
+  {% endfor %}
 </div>
 
-<!-- Recent reservations -->
-<div class="bg-white rounded-xl shadow-sm border">
-  <div class="px-6 py-4 border-b flex items-center justify-between">
-    <h3 class="font-semibold text-gray-800">Réservations récentes</h3>
-    <a href="{{ url_for('reservations') }}" class="text-sm text-indigo-600 hover:underline">Voir tout</a>
+<!-- Réservations récentes -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+  <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div>
+      <h3 class="font-semibold text-slate-800">Réservations récentes</h3>
+      <p class="text-slate-400 text-xs mt-0.5">Les 5 dernières créées</p>
+    </div>
+    <a href="{{ url_for('reservations') }}"
+       class="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 text-sm font-medium transition">
+      Voir tout
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    </a>
   </div>
 
   {% if reservations_recentes %}
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
-      <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
-        <tr>
-          <th class="px-6 py-3 text-left">Salle</th>
-          <th class="px-6 py-3 text-left">Classe</th>
-          <th class="px-6 py-3 text-left">Date</th>
-          <th class="px-6 py-3 text-left">Horaire</th>
-          <th class="px-6 py-3 text-left">Statut</th>
+      <thead>
+        <tr class="border-b border-slate-100">
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Salle</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Classe</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Date</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Horaire</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Statut</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-100">
+      <tbody>
         {% for r in reservations_recentes %}
-        <tr class="hover:bg-gray-50">
-          <td class="px-6 py-3 font-medium text-gray-800">{{ r.salle.nom }}</td>
-          <td class="px-6 py-3 text-gray-600">{{ r.classe }}</td>
-          <td class="px-6 py-3 text-gray-600">{{ r.date.strftime('%d/%m/%Y') }}</td>
-          <td class="px-6 py-3 text-gray-600">{{ r.heure_debut.strftime('%H:%M') }} – {{ r.heure_fin.strftime('%H:%M') }}</td>
-          <td class="px-6 py-3">
+        <tr class="data-row border-b border-slate-50 last:border-0">
+          <td class="px-6 py-3.5">
+            <div class="flex items-center gap-2.5">
+              <div class="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/></svg>
+              </div>
+              <span class="font-medium text-slate-800">{{ r.salle.nom }}</span>
+            </div>
+          </td>
+          <td class="px-6 py-3.5 text-slate-600">{{ r.classe }}</td>
+          <td class="px-6 py-3.5 text-slate-600">{{ r.date.strftime('%d/%m/%Y') }}</td>
+          <td class="px-6 py-3.5 text-slate-600 font-mono text-xs">{{ r.heure_debut.strftime('%H:%M') }} – {{ r.heure_fin.strftime('%H:%M') }}</td>
+          <td class="px-6 py-3.5">
             {% if r.statut.value == 'confirmee' %}
-              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Confirmée</span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Confirmée
+              </span>
             {% elif r.statut.value == 'en_attente' %}
-              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">En attente</span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> En attente
+              </span>
             {% elif r.statut.value == 'annulee' %}
-              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Annulée</span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Annulée
+              </span>
             {% else %}
-              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Terminée</span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
+                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Terminée
+              </span>
             {% endif %}
           </td>
         </tr>
@@ -66,7 +93,11 @@
     </table>
   </div>
   {% else %}
-  <p class="px-6 py-8 text-center text-gray-400 text-sm">Aucune réservation pour le moment.</p>
+  <div class="text-center py-16">
+    <svg class="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+    <p class="text-slate-400 text-sm font-medium">Aucune réservation pour le moment</p>
+    <p class="text-slate-300 text-xs mt-1">Les réservations créées apparaîtront ici.</p>
+  </div>
   {% endif %}
 </div>
 {% endblock %}

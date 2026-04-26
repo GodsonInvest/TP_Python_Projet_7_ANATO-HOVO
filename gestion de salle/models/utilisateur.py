@@ -86,10 +86,13 @@ class Utilisateur(ABC):
 class Etudiant(Utilisateur):
 
     def __init__(self, nom: str, email: str, login: str, mot_de_passe: str,
-                 matricule: str, classe: str):
+                 matricule: str, classe: str,
+                 ecole_id: int = None, unite_formation_id: int = None):
         super().__init__(nom, email, login, mot_de_passe)
         self.__matricule: str = matricule
         self.__classe: str = classe
+        self.__ecole_id: int = ecole_id
+        self.__unite_formation_id: int = unite_formation_id
 
     @property
     def role(self) -> str:
@@ -107,9 +110,30 @@ class Etudiant(Utilisateur):
     def classe(self, valeur: str):
         self.__classe = valeur
 
+    @property
+    def ecole_id(self) -> int:
+        return self.__ecole_id
+
+    @ecole_id.setter
+    def ecole_id(self, v: int):
+        self.__ecole_id = v
+
+    @property
+    def unite_formation_id(self) -> int:
+        return self.__unite_formation_id
+
+    @unite_formation_id.setter
+    def unite_formation_id(self, v: int):
+        self.__unite_formation_id = v
+
     def to_dict(self) -> dict:
         d = super().to_dict()
-        d.update({"matricule": self.__matricule, "classe": self.__classe})
+        d.update({
+            "matricule": self.__matricule,
+            "classe": self.__classe,
+            "ecole_id": self.__ecole_id,
+            "unite_formation_id": self.__unite_formation_id,
+        })
         return d
 
 

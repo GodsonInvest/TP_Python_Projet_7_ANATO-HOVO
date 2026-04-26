@@ -1,115 +1,225 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="h-full">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Inscription — Réservation de salles</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Inscription — UniRéserv</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>body{font-family:'Inter',sans-serif;}</style>
 </head>
-<body class="min-h-screen bg-indigo-900 flex items-center justify-center px-4 py-10">
+<body class="h-full bg-white flex">
 
-  <div class="w-full max-w-md">
-    <div class="text-center mb-8">
-      <h1 class="text-3xl font-bold text-white">Réservation de salles</h1>
-      <p class="text-indigo-300 mt-1 text-sm">Université — Système de gestion</p>
+  <!-- Panneau gauche -->
+  <div class="hidden lg:flex lg:w-5/12 flex-col justify-center p-12 relative overflow-hidden"
+       style="background:linear-gradient(135deg,#0f172a 0%,#1e1b4b 60%,#312e81 100%)">
+    <div class="absolute top-0 right-0 w-80 h-80 rounded-full opacity-10" style="background:radial-gradient(circle,#6366f1,transparent);transform:translate(30%,-30%)"></div>
+    <div class="absolute bottom-0 left-0 w-56 h-56 rounded-full opacity-10" style="background:radial-gradient(circle,#818cf8,transparent);transform:translate(-30%,30%)"></div>
+
+    <div class="relative z-10">
+      <div class="flex items-center gap-3 mb-10">
+        <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
+        </div>
+        <span class="text-white font-bold text-xl">UniRéserv</span>
+      </div>
+      <h2 class="text-3xl font-bold text-white leading-tight mb-3">Rejoignez<br/>la plateforme</h2>
+      <p class="text-indigo-300 text-sm leading-relaxed mb-8">Créez votre compte étudiant ou enseignant. Le rôle Responsable est attribué uniquement par l'administrateur.</p>
+      <div class="bg-white/5 border border-white/10 rounded-xl p-4">
+        <p class="text-slate-300 text-xs font-semibold uppercase tracking-wide mb-3">Processus d'inscription</p>
+        <div class="space-y-2.5">
+          {% for n, step in [('1','Remplissez le formulaire'), ('2','Vérifiez votre email (OTP)'), ('3','Connectez-vous à votre compte')] %}
+          <div class="flex items-center gap-3">
+            <div class="w-6 h-6 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0">{{ n }}</div>
+            <p class="text-slate-300 text-sm">{{ step }}</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
     </div>
+  </div>
 
-    <div class="bg-white rounded-2xl shadow-xl px-8 py-10">
-      <h2 class="text-xl font-semibold text-gray-800 mb-6">Créer un compte</h2>
+  <!-- Panneau droit -->
+  <div class="flex-1 flex flex-col justify-center overflow-y-auto px-8 sm:px-14 py-10">
+    <div class="max-w-lg w-full mx-auto">
+
+      <div class="mb-7">
+        <h1 class="text-2xl font-bold text-slate-900 mb-1">Créer un compte</h1>
+        <p class="text-slate-500 text-sm">Tous les champs marqués <span class="text-red-500">*</span> sont obligatoires.</p>
+      </div>
 
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
-          <div class="mb-4 rounded-lg border {% if category == 'success' %}border-green-300 bg-green-50 text-green-800{% else %}border-red-300 bg-red-50 text-red-800{% endif %} px-4 py-3 text-sm">
-            {{ message }}
-          </div>
+          <div class="mb-5 flex items-center gap-2 rounded-xl px-4 py-3 text-sm border
+            {% if category=='success' %}bg-emerald-50 border-emerald-200 text-emerald-800
+            {% elif category=='warning' %}bg-amber-50 border-amber-200 text-amber-800
+            {% else %}bg-red-50 border-red-200 text-red-700{% endif %}">{{ message }}</div>
         {% endfor %}
       {% endwith %}
 
-      <form method="POST" action="{{ url_for('inscription') }}" class="space-y-4" id="form-inscription">
+      <form method="POST" id="form-inscription" class="space-y-4">
 
         <div class="grid grid-cols-2 gap-4">
           <div class="col-span-2">
-            <label for="nom" class="block text-sm font-medium text-gray-700 mb-1">Nom complet <span class="text-red-500">*</span></label>
-            <input type="text" id="nom" name="nom" required
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              placeholder="ex : Alice Dupont" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Nom complet <span class="text-red-500">*</span></label>
+            <input type="text" name="nom" required placeholder="Alice Dupont"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
           </div>
-
           <div class="col-span-2">
-            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
-            <input type="email" id="email" name="email" required
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              placeholder="alice@univ.bj" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Adresse email <span class="text-red-500">*</span></label>
+            <input type="email" name="email" required placeholder="alice@univ.bj"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
           </div>
-
           <div>
-            <label for="login" class="block text-sm font-medium text-gray-700 mb-1">Login <span class="text-red-500">*</span></label>
-            <input type="text" id="login" name="login" required
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              placeholder="alice" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Login <span class="text-red-500">*</span></label>
+            <input type="text" name="login" required placeholder="alice"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
           </div>
-
           <div>
-            <label for="mot_de_passe" class="block text-sm font-medium text-gray-700 mb-1">Mot de passe <span class="text-red-500">*</span></label>
-            <input type="password" id="mot_de_passe" name="mot_de_passe" required minlength="6"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              placeholder="6 caractères min." />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Mot de passe <span class="text-red-500">*</span></label>
+            <input type="password" name="mot_de_passe" required minlength="6" placeholder="6 car. min."
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
           </div>
         </div>
 
+        <!-- Rôle -->
         <div>
-          <label for="role" class="block text-sm font-medium text-gray-700 mb-1">Je suis <span class="text-red-500">*</span></label>
-          <select id="role" name="role" onchange="toggleChamps()"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
-            <option value="etudiant">Étudiant</option>
-            <option value="enseignant">Enseignant</option>
-          </select>
-          <p class="mt-1 text-xs text-gray-400">Le rôle Responsable est attribué uniquement par l'administrateur.</p>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Je suis <span class="text-red-500">*</span></label>
+          <div class="grid grid-cols-2 gap-3" id="role-selector">
+            <label class="role-btn cursor-pointer">
+              <input type="radio" name="role" value="etudiant" checked class="sr-only" onchange="toggleRoleFields()"/>
+              <div class="role-card flex items-center gap-3 rounded-xl border-2 border-indigo-600 bg-indigo-50 px-4 py-3 transition-all">
+                <div class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-indigo-700">Étudiant</p>
+                  <p class="text-xs text-indigo-500">Consulter le planning</p>
+                </div>
+              </div>
+            </label>
+            <label class="role-btn cursor-pointer">
+              <input type="radio" name="role" value="enseignant" class="sr-only" onchange="toggleRoleFields()"/>
+              <div class="role-card flex items-center gap-3 rounded-xl border-2 border-slate-200 bg-white px-4 py-3 transition-all">
+                <div class="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0">
+                  <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-slate-700">Enseignant</p>
+                  <p class="text-xs text-slate-400">Consulter le planning</p>
+                </div>
+              </div>
+            </label>
+          </div>
         </div>
 
         <!-- Champs étudiant -->
         <div id="champs-etudiant" class="space-y-4">
-          <div>
-            <label for="matricule" class="block text-sm font-medium text-gray-700 mb-1">Matricule</label>
-            <input type="text" id="matricule" name="matricule"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              placeholder="ETU001" />
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Matricule</label>
+              <input type="text" name="matricule" placeholder="ETU001"
+                class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1.5">Classe</label>
+              <input type="text" name="classe" placeholder="L3-INFO"
+                class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            </div>
           </div>
+          {% if ecoles %}
           <div>
-            <label for="classe" class="block text-sm font-medium text-gray-700 mb-1">Classe</label>
-            <input type="text" id="classe" name="classe"
-              class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-              placeholder="L3-INFO" />
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">École / Faculté</label>
+            <select name="ecole_id" id="ecole-select" onchange="filterUnites()"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+              <option value="">-- Sélectionner un établissement --</option>
+              {% for e in ecoles %}
+              <option value="{{ e.id }}">
+                {%- if e.abreviation %}{{ e.abreviation }} — {% endif %}{{ e.nom }}{% if e.type == 'faculte' %} (Faculté){% endif -%}
+              </option>
+              {% endfor %}
+            </select>
           </div>
+          <div id="unite-container" class="hidden">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Unité de formation / Niveau</label>
+            <select name="unite_formation_id" id="unite-select"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+              <option value="">-- Sélectionner un niveau --</option>
+            </select>
+          </div>
+          {% endif %}
         </div>
 
         <!-- Champs enseignant -->
         <div id="champs-enseignant" class="hidden">
-          <label for="matiere" class="block text-sm font-medium text-gray-700 mb-1">Matière enseignée</label>
-          <input type="text" id="matiere" name="matiere"
-            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
-            placeholder="Algorithmique" />
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Matière enseignée</label>
+          <input type="text" name="matiere" placeholder="Algorithmique"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
         </div>
 
         <button type="submit"
-          class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg py-2.5 text-sm transition mt-2">
-          S'inscrire
+          class="w-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-semibold rounded-xl py-3 text-sm transition-all duration-150 shadow-md shadow-indigo-200 mt-2">
+          Continuer — Vérification email
         </button>
       </form>
 
-      <p class="text-center text-sm text-gray-500 mt-6">
+      <p class="text-center text-sm text-slate-500 mt-6">
         Déjà inscrit ?
-        <a href="{{ url_for('login') }}" class="text-indigo-600 hover:underline font-medium">Se connecter</a>
+        <a href="{{ url_for('login') }}" class="text-indigo-600 font-semibold hover:text-indigo-800 transition">Se connecter</a>
       </p>
     </div>
   </div>
 
-  <script>
-    function toggleChamps() {
-      const role = document.getElementById('role').value;
-      document.getElementById('champs-etudiant').classList.toggle('hidden', role !== 'etudiant');
-      document.getElementById('champs-enseignant').classList.toggle('hidden', role !== 'enseignant');
+<script>
+const UNITES = {{ unites_json | safe }};
+
+function filterUnites() {
+  const ecoleId = parseInt(document.getElementById('ecole-select').value);
+  const uniteSelect    = document.getElementById('unite-select');
+  const uniteContainer = document.getElementById('unite-container');
+  if (!uniteSelect || !uniteContainer) return;
+
+  uniteSelect.innerHTML = '<option value="">-- Sélectionner un niveau --</option>';
+  if (!ecoleId) { uniteContainer.classList.add('hidden'); return; }
+
+  const filtered = UNITES.filter(u => u.ecole_id === ecoleId);
+  if (filtered.length === 0) { uniteContainer.classList.add('hidden'); return; }
+
+  filtered.forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.id;
+    const abr = u.abreviation ? ` (${u.abreviation})` : '';
+    opt.textContent = u.niveau + ' — ' + u.nom + abr;
+    uniteSelect.appendChild(opt);
+  });
+  uniteContainer.classList.remove('hidden');
+}
+
+function toggleRoleFields() {
+  const val = document.querySelector('input[name="role"]:checked').value;
+  document.getElementById('champs-etudiant').classList.toggle('hidden', val !== 'etudiant');
+  document.getElementById('champs-enseignant').classList.toggle('hidden', val !== 'enseignant');
+  document.querySelectorAll('.role-btn').forEach(btn => {
+    const radio = btn.querySelector('input[type="radio"]');
+    const card  = btn.querySelector('.role-card');
+    if (radio.checked) {
+      card.classList.remove('border-slate-200','bg-white');
+      card.classList.add('border-indigo-600','bg-indigo-50');
+      card.querySelectorAll('p').forEach((p,i) => {
+        p.classList.remove('text-slate-700','text-slate-400');
+        p.classList.add(i === 0 ? 'text-indigo-700' : 'text-indigo-500');
+      });
+    } else {
+      card.classList.add('border-slate-200','bg-white');
+      card.classList.remove('border-indigo-600','bg-indigo-50');
+      card.querySelectorAll('p').forEach((p,i) => {
+        p.classList.remove('text-indigo-700','text-indigo-500');
+        p.classList.add(i === 0 ? 'text-slate-700' : 'text-slate-400');
+      });
     }
-  </script>
+  });
+}
+</script>
 </body>
 </html>

@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import random
@@ -8,6 +9,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from flask import Flask, render_template, request, redirect, url_for, session, flash
 
+from models.etablissement import Ecole, UniteFormation
 from models.utilisateur import Administrateur, Etudiant, Enseignant, Responsable
 from models.salle import Salle
 from models.reservation import Reservation, StatutReservation
@@ -164,32 +166,38 @@ def inscription():
     if "user_id" in session:
         return redirect(url_for("dashboard"))
 
+    bd = get_bd()
+    ecoles = bd.charger_toutes_ecoles()
+    unites = bd.charger_toutes_unites()
+    unites_json = json.dumps([u.to_dict() for u in unites])
+
     if request.method == "POST":
-        nom       = request.form.get("nom", "").strip()
-        email     = request.form.get("email", "").strip()
-        login_val = request.form.get("login", "").strip()
-        mdp       = request.form.get("mot_de_passe", "").strip()
-        role      = request.form.get("role", "etudiant")
-        classe    = request.form.get("classe", "").strip()
-        matricule = request.form.get("matricule", "").strip()
-        matiere   = request.form.get("matiere", "").strip()
+        nom                = request.form.get("nom", "").strip()
+        email              = request.form.get("email", "").strip()
+        login_val          = request.form.get("login", "").strip()
+        mdp                = request.form.get("mot_de_passe", "").strip()
+        role               = request.form.get("role", "etudiant")
+        classe             = request.form.get("classe", "").strip()
+        matricule          = request.form.get("matricule", "").strip()
+        matiere            = request.form.get("matiere", "").strip()
+        ecole_id_str       = request.form.get("ecole_id", "").strip()
+        unite_id_str       = request.form.get("unite_formation_id", "").strip()
 
         if not all([nom, email, login_val, mdp]):
             flash("Tous les champs obligatoires doivent être remplis.", "error")
-            return render_template("inscription.html")
+            return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
 
         if len(mdp) < 6:
             flash("Le mot de passe doit comporter au moins 6 caractères.", "error")
-            return render_template("inscription.html")
+            return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
 
         if role not in ("etudiant", "enseignant"):
             flash("Rôle invalide.", "error")
-            return render_template("inscription.html")
+            return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
 
-        bd = get_bd()
         if bd.charger_utilisateur_par_login(login_val):
             flash(f"Le login « {login_val} » est déjà utilisé.", "error")
-            return render_template("inscription.html")
+            return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
 
         otp    = _generer_otp()
         expire = (datetime.now() + timedelta(minutes=5)).isoformat()
@@ -203,6 +211,8 @@ def inscription():
                 "mdp_hash": Authentification.hacher_mot_de_passe(mdp),
                 "role": role, "classe": classe,
                 "matricule": matricule, "matiere": matiere,
+                "ecole_id": int(ecole_id_str) if ecole_id_str.isdigit() else None,
+                "unite_formation_id": int(unite_id_str) if unite_id_str.isdigit() else None,
             },
         }
 
@@ -217,7 +227,7 @@ def inscription():
             )
         return redirect(url_for("inscription_verifier"))
 
-    return render_template("inscription.html")
+    return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
 
 
 @app.route("/inscription/verifier", methods=["GET", "POST"])
@@ -277,7 +287,8 @@ def inscription_verifier():
 
         if u_data["role"] == "etudiant":
             u = Etudiant(u_data["nom"], u_data["email"], u_data["login"],
-                         u_data["mdp_hash"], u_data["matricule"], u_data["classe"])
+                         u_data["mdp_hash"], u_data["matricule"], u_data["classe"],
+                         u_data.get("ecole_id"), u_data.get("unite_formation_id"))
         else:
             u = Enseignant(u_data["nom"], u_data["email"], u_data["login"],
                            u_data["mdp_hash"], u_data["matiere"])
@@ -789,6 +800,168 @@ def parametres_tester():
         flash(f"Échec de l'envoi : {e}", "error")
 
     return redirect(url_for("parametres"))
+
+
+# ── Écoles & Facultés (admin) ─────────────────────────────────────────────────────
+
+@app.route("/ecoles")
+@login_required
+@admin_required
+def ecoles():
+    bd = get_bd()
+    toutes_ecoles = bd.charger_toutes_ecoles()
+    toutes_unites = bd.charger_toutes_unites()
+
+    filieres_par_ecole = {}
+    for e in toutes_ecoles:
+        groupes = {}
+        for u in toutes_unites:
+            if u.ecole_id != e.id:
+                continue
+            if u.nom not in groupes:
+                groupes[u.nom] = {"nom": u.nom, "abreviation": u.abreviation, "niveaux": []}
+            groupes[u.nom]["niveaux"].append(u.niveau)
+        for g in groupes.values():
+            g["niveaux"].sort()
+            g["cycle"] = "Licence" if g["niveaux"][0].startswith("L") else "Master"
+        filieres_par_ecole[e.id] = sorted(groupes.values(), key=lambda f: f["nom"])
+
+    return render_template("ecoles.html", active="ecoles",
+                           ecoles=toutes_ecoles, filieres_par_ecole=filieres_par_ecole)
+
+
+@app.route("/ecoles/ajouter", methods=["GET", "POST"])
+@login_required
+@admin_required
+def ecoles_ajouter():
+    if request.method == "POST":
+        nom    = request.form.get("nom", "").strip()
+        type_e = request.form.get("type", "ecole")
+        desc   = request.form.get("description", "").strip()
+        abr    = request.form.get("abreviation", "").strip().upper()
+        if not nom:
+            flash("Le nom est obligatoire.", "error")
+            return render_template("ecole_form.html", action="Ajouter", active="ecoles")
+        if type_e not in ("ecole", "faculte"):
+            type_e = "ecole"
+        e = Ecole(nom, type_e, desc, abr)
+        get_bd().sauvegarder_ecole(e)
+        flash(f"« {nom} » ajouté(e) avec succès.", "success")
+        return redirect(url_for("ecoles"))
+    return render_template("ecole_form.html", action="Ajouter", active="ecoles")
+
+
+@app.route("/ecoles/<int:ecole_id>/modifier", methods=["GET", "POST"])
+@login_required
+@admin_required
+def ecoles_modifier(ecole_id):
+    bd = get_bd()
+    e  = bd.charger_ecole_par_id(ecole_id)
+    if not e:
+        flash("École introuvable.", "error")
+        return redirect(url_for("ecoles"))
+    if request.method == "POST":
+        nom    = request.form.get("nom", "").strip()
+        type_e = request.form.get("type", "ecole")
+        desc   = request.form.get("description", "").strip()
+        abr    = request.form.get("abreviation", "").strip().upper()
+        if nom:
+            e.nom = nom
+        if type_e in ("ecole", "faculte"):
+            e.type = type_e
+        e.description = desc
+        e.abreviation = abr
+        bd.sauvegarder_ecole(e)
+        flash(f"« {e.nom} » modifié(e).", "success")
+        return redirect(url_for("ecoles"))
+    return render_template("ecole_form.html", action="Modifier", ecole=e, active="ecoles")
+
+
+@app.route("/ecoles/<int:ecole_id>/supprimer", methods=["POST"])
+@login_required
+@admin_required
+def ecoles_supprimer(ecole_id):
+    bd = get_bd()
+    e  = bd.charger_ecole_par_id(ecole_id)
+    if bd.supprimer_ecole(ecole_id):
+        flash(f"« {e.nom if e else '—'} » supprimé(e).", "success")
+    else:
+        flash("École introuvable.", "error")
+    return redirect(url_for("ecoles"))
+
+
+@app.route("/ecoles/<int:ecole_id>/unites/ajouter", methods=["GET", "POST"])
+@login_required
+@admin_required
+def unites_ajouter(ecole_id):
+    bd = get_bd()
+    e  = bd.charger_ecole_par_id(ecole_id)
+    if not e:
+        flash("École introuvable.", "error")
+        return redirect(url_for("ecoles"))
+    if request.method == "POST":
+        nom   = request.form.get("nom", "").strip()
+        cycle = request.form.get("cycle", "licence")
+        abr   = request.form.get("abreviation", "").strip().upper()
+        if not nom:
+            flash("Le nom de la filière est obligatoire.", "error")
+            return render_template("unite_form.html", mode="ajouter", ecole=e, active="ecoles")
+        niveaux = ["L1", "L2", "L3"] if cycle == "licence" else ["M1", "M2"]
+        for niveau in niveaux:
+            bd.sauvegarder_unite(UniteFormation(nom, niveau, ecole_id, abr))
+        flash(f"Filière « {nom} » créée avec {len(niveaux)} niveaux ({', '.join(niveaux)}).", "success")
+        return redirect(url_for("ecoles"))
+    return render_template("unite_form.html", mode="ajouter", ecole=e, active="ecoles")
+
+
+@app.route("/ecoles/<int:ecole_id>/filieres/modifier", methods=["GET", "POST"])
+@login_required
+@admin_required
+def filieres_modifier(ecole_id):
+    bd          = get_bd()
+    e           = bd.charger_ecole_par_id(ecole_id)
+    ancien_nom  = request.args.get("nom") or request.form.get("ancien_nom", "")
+    if not e or not ancien_nom:
+        flash("Filière introuvable.", "error")
+        return redirect(url_for("ecoles"))
+
+    if request.method == "POST":
+        nouveau_nom = request.form.get("nom", "").strip()
+        abr         = request.form.get("abreviation", "").strip().upper()
+        if not nouveau_nom:
+            flash("Le nom est obligatoire.", "error")
+        else:
+            bd.modifier_filiere(ecole_id, ancien_nom, nouveau_nom, abr)
+            flash(f"Filière « {nouveau_nom} » mise à jour.", "success")
+            return redirect(url_for("ecoles"))
+
+    unites_filiere = [u for u in bd.charger_unites_par_ecole(ecole_id) if u.nom == ancien_nom]
+    if not unites_filiere:
+        flash("Filière introuvable.", "error")
+        return redirect(url_for("ecoles"))
+
+    filiere = {
+        "nom":         ancien_nom,
+        "abreviation": unites_filiere[0].abreviation,
+        "niveaux":     sorted(u.niveau for u in unites_filiere),
+        "cycle":       "Licence" if unites_filiere[0].niveau.startswith("L") else "Master",
+    }
+    return render_template("unite_form.html", mode="modifier",
+                           ecole=e, filiere=filiere, active="ecoles")
+
+
+@app.route("/ecoles/<int:ecole_id>/filieres/supprimer", methods=["POST"])
+@login_required
+@admin_required
+def filieres_supprimer(ecole_id):
+    nom = request.form.get("nom", "")
+    bd  = get_bd()
+    n   = bd.supprimer_filiere(ecole_id, nom)
+    if n > 0:
+        flash(f"Filière « {nom} » supprimée ({n} niveau(x)).", "success")
+    else:
+        flash("Filière introuvable.", "error")
+    return redirect(url_for("ecoles"))
 
 
 if __name__ == "__main__":
