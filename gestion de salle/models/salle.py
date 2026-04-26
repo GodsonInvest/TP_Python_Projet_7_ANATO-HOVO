@@ -8,8 +8,6 @@ class Salle:
         self.__equipements: list[str] = equipements or []
         self.__disponible: bool = True
 
-    # ── Propriétés ───────────────────────────────────────────────────────────
-
     @property
     def id(self) -> int:
         return self.__id
@@ -41,7 +39,7 @@ class Salle:
 
     @property
     def equipements(self) -> list[str]:
-        return list(self.__equipements)          
+        return list(self.__equipements)
 
     @property
     def disponible(self) -> bool:
@@ -50,8 +48,6 @@ class Salle:
     @disponible.setter
     def disponible(self, valeur: bool):
         self.__disponible = valeur
-
-    # ── Méthodes ─────────────────────────────────────────────────────────────
 
     def ajouter_equipement(self, equipement: str):
         if equipement not in self.__equipements:

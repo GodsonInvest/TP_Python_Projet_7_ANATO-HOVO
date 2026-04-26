@@ -1,0 +1,23 @@
+.claude/
+
+# Environnement Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+venv/
+env/
+
+# Base de données locale
+data/
+*.db
+*.sqlite3
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+*.idea/

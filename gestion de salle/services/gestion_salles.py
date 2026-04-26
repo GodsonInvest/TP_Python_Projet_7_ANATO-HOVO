@@ -1,10 +1,10 @@
-
 from typing import Optional
 from models.salle import Salle
 from models.utilisateur import Administrateur
 
 
 class GestionSalles:
+
     def __init__(self):
         self.__salles: dict[int, Salle] = {}
         self.__prochain_id: int = 1
@@ -48,7 +48,6 @@ class GestionSalles:
         return None
 
     def salles_disponibles(self, capacite_min: int = 0) -> list[Salle]:
-        """Retourne les salles disponibles avec capacité >= capacite_min."""
         return [
             s for s in self.__salles.values()
             if s.disponible and s.capacite >= capacite_min

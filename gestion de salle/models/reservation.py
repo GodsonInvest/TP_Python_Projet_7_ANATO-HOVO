@@ -3,25 +3,20 @@ from enum import Enum
 
 
 class StatutReservation(Enum):
-    """Cycle de vie d'une réservation."""
-    EN_ATTENTE  = "en_attente"
-    CONFIRMEE   = "confirmee"
-    ANNULEE     = "annulee"
-    TERMINEE    = "terminee"
+    EN_ATTENTE = "en_attente"
+    CONFIRMEE  = "confirmee"
+    ANNULEE    = "annulee"
+    TERMINEE   = "terminee"
 
 
 class Reservation:
-    """
-    Représente une réservation de salle.
-    Encapsulation totale — modification uniquement via méthodes métier.
-    """
 
-    _compteur: int = 0          
+    _compteur: int = 0
 
     def __init__(
         self,
-        salle,                  # Salle
-        responsable,            # Responsable
+        salle,
+        responsable,
         classe: str,
         date_reservation: date,
         heure_debut: time,
@@ -39,10 +34,7 @@ class Reservation:
         self.__matiere: str = matiere
         self.__statut: StatutReservation = StatutReservation.EN_ATTENTE
         self.__date_creation: datetime = datetime.now()
-
         self._valider_horaires()
-
-    # ── Validation interne ───────────────────────────────────────────────────
 
     def _valider_horaires(self):
         if self.__heure_debut >= self.__heure_fin:
@@ -51,15 +43,12 @@ class Reservation:
                 f"doit être avant l'heure de fin ({self.__heure_fin})."
             )
 
-    # ── Propriétés (lecture seule pour la cohérence) ─────────────────────────
-
     @property
     def id(self) -> int:
         return self.__id
 
     @id.setter
     def id(self, valeur: int):
-        """Permet à la couche persistance d'assigner l'ID base de données."""
         self.__id = valeur
 
     @property
@@ -98,21 +87,16 @@ class Reservation:
     def date_creation(self) -> datetime:
         return self.__date_creation
 
-    # ── Méthodes métier ───────────────────────────────────────────────────────
-
     def confirmer(self):
-        """Passe la réservation à l'état CONFIRMEE."""
         if self.__statut == StatutReservation.EN_ATTENTE:
             self.__statut = StatutReservation.CONFIRMEE
 
     def annuler(self):
-        """Annule la réservation si elle n'est pas déjà terminée."""
         if self.__statut not in (StatutReservation.ANNULEE, StatutReservation.TERMINEE):
             self.__statut = StatutReservation.ANNULEE
 
     def modifier_horaires(self, nouvelle_date: date,
                           nouvel_debut: time, nouvelle_fin: time):
-        """Modifie date et horaires (réservation doit être CONFIRMEE ou EN_ATTENTE)."""
         if self.__statut in (StatutReservation.ANNULEE, StatutReservation.TERMINEE):
             raise PermissionError("Impossible de modifier une réservation annulée ou terminée.")
         self.__date = nouvelle_date
@@ -121,19 +105,14 @@ class Reservation:
         self._valider_horaires()
 
     def chevauche(self, autre: "Reservation") -> bool:
-        """
-        Retourne True si cette réservation chevauche une autre
-        sur la même salle et la même date.
-        """
         if self.__salle.id != autre.__salle.id:
             return False
         if self.__date != autre.__date:
             return False
-        # Chevauchement : début1 < fin2  ET  fin1 > début2
+        # début1 < fin2  ET  fin1 > début2
         return self.__heure_debut < autre.__heure_fin and self.__heure_fin > autre.__heure_debut
 
     def duree_minutes(self) -> int:
-        """Retourne la durée de la réservation en minutes."""
         debut = datetime.combine(self.__date, self.__heure_debut)
         fin   = datetime.combine(self.__date, self.__heure_fin)
         return int((fin - debut).total_seconds() // 60)

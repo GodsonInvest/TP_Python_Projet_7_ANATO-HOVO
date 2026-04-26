@@ -11,7 +11,7 @@
     "heure_fin": "12:00",
     "matiere": "Algorithmique",
     "statut": "confirmee",
-    "date_creation": "2026-04-26T14:18:31.585854"
+    "date_creation": "2026-04-26T18:01:08.569273"
   },
   {
     "id": 3,
@@ -25,6 +25,6 @@
     "heure_fin": "16:00",
     "matiere": "Maths",
     "statut": "confirmee",
-    "date_creation": "2026-04-26T14:18:31.586242"
+    "date_creation": "2026-04-26T18:01:08.569334"
   }
 ]
