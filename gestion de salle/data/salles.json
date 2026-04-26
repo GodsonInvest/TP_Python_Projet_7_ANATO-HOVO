@@ -1,0 +1,21 @@
+[
+  {
+    "id": 1,
+    "nom": "Salle A",
+    "capacite": 40,
+    "equipements": [
+      "Projecteur",
+      "Tableau blanc"
+    ],
+    "disponible": true
+  },
+  {
+    "id": 2,
+    "nom": "Salle B",
+    "capacite": 30,
+    "equipements": [
+      "Projecteur"
+    ],
+    "disponible": true
+  }
+]

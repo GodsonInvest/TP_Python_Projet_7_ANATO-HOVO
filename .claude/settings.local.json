@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python tests/test_persistance.py)",
+      "Bash(python -c \"import ast, sys; f=open\\('tests/test_persistance.py',encoding='utf-8'\\).read\\(\\); print\\('OK'\\)\")"
+    ]
+  }
+}

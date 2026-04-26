@@ -3,17 +3,14 @@ from datetime import datetime
 
 
 class Utilisateur(ABC):
-    
 
     def __init__(self, nom: str, email: str, login: str, mot_de_passe: str):
-        self.__id: int = None                        # Clé primaire (assignée par la BDD)
+        self.__id: int = None                     # assigné par la couche persistance
         self.__nom: str = nom
         self.__email: str = email
         self.__login: str = login
-        self.__mot_de_passe: str = mot_de_passe      # Stocké haché en pratique
+        self.__mot_de_passe: str = mot_de_passe  # stocké haché en pratique
         self.__date_inscription: datetime = datetime.now()
-
-    # ── Propriétés (getters / setters) ──────────────────────────────────────
 
     @property
     def id(self) -> int:
@@ -21,7 +18,7 @@ class Utilisateur(ABC):
 
     @id.setter
     def id(self, valeur: int):
-        if self.__id is None:                       
+        if self.__id is None:
             self.__id = valeur
 
     @property
@@ -63,14 +60,10 @@ class Utilisateur(ABC):
     def date_inscription(self) -> datetime:
         return self.__date_inscription
 
-    # ── Méthode abstraite (rôle polymorphique) ───────────────────────────────
-
     @property
     @abstractmethod
     def role(self) -> str:
-        """Retourne le rôle de l'utilisateur (polymorphisme)."""
-
-    # ── Représentation ───────────────────────────────────────────────────────
+        pass
 
     def __repr__(self) -> str:
         return (
@@ -79,7 +72,6 @@ class Utilisateur(ABC):
         )
 
     def to_dict(self) -> dict:
-        """Sérialise l'objet en dictionnaire (utile pour la persistance)."""
         return {
             "id": self.__id,
             "nom": self.__nom,
@@ -91,10 +83,7 @@ class Utilisateur(ABC):
         }
 
 
-# ────────────────────────Sous-classes concrètes───────────────────────────────────────────────────
-
 class Etudiant(Utilisateur):
-    """Utilisateur de type Étudiant. Peut consulter le planning."""
 
     def __init__(self, nom: str, email: str, login: str, mot_de_passe: str,
                  matricule: str, classe: str):
@@ -125,7 +114,6 @@ class Etudiant(Utilisateur):
 
 
 class Enseignant(Utilisateur):
-    """Utilisateur de type Enseignant. Peut consulter le planning."""
 
     def __init__(self, nom: str, email: str, login: str, mot_de_passe: str,
                  matiere: str):
@@ -151,10 +139,7 @@ class Enseignant(Utilisateur):
 
 
 class Responsable(Utilisateur):
-    """
-    Utilisateur promu Responsable de classe par l'admin.
-    Hérite de Utilisateur — rôle non disponible à l'inscription directe.
-    """
+    """Rôle attribué par l'admin uniquement — non disponible à l'inscription directe."""
 
     def __init__(self, nom: str, email: str, login: str, mot_de_passe: str,
                  classe: str):
@@ -180,7 +165,6 @@ class Responsable(Utilisateur):
 
 
 class Administrateur(Utilisateur):
-    """Super utilisateur du système."""
 
     def __init__(self, nom: str, email: str, login: str, mot_de_passe: str):
         super().__init__(nom, email, login, mot_de_passe)
@@ -189,14 +173,8 @@ class Administrateur(Utilisateur):
     def role(self) -> str:
         return "admin"
 
-    # ── Actions spécifiques admin ────────────────────────────────────────────
-
     def attribuer_role_responsable(self, utilisateur: Utilisateur,
                                    classe: str) -> "Responsable":
-        """
-        Crée un Responsable à partir d'un Etudiant ou Enseignant existant.
-        Retourne la nouvelle instance Responsable.
-        """
         return Responsable(
             nom=utilisateur.nom,
             email=utilisateur.email,
@@ -207,10 +185,7 @@ class Administrateur(Utilisateur):
 
     def revoquer_role_responsable(self, responsable: "Responsable",
                                   nouveau_role: str = "etudiant") -> Utilisateur:
-        """
-        Révoque le rôle Responsable et retourne l'utilisateur avec le rôle souhaité.
-        nouveau_role : 'etudiant' | 'enseignant'
-        """
+        """nouveau_role : 'etudiant' | 'enseignant'"""
         if nouveau_role == "etudiant":
             return Etudiant(
                 nom=responsable.nom,

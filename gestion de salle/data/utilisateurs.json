@@ -1,0 +1,32 @@
+[
+  {
+    "id": 0,
+    "nom": "Dr. Admin",
+    "email": "admin@univ.bj",
+    "login": "admin",
+    "mot_de_passe": "e86f78a8a3caf0b60d8e74e5942aa6d86dc150cd3c03338aef25b7d2d7e3acc7",
+    "role": "admin",
+    "date_inscription": "2026-04-26T14:18:31.583724"
+  },
+  {
+    "id": 1,
+    "nom": "Alice Dupont",
+    "email": "alice@univ.bj",
+    "login": "alice",
+    "mot_de_passe": "b6bc7b58510319a151d168ba3d5aecb3ac0a9708d06dd930f37fbc89b6cdc697",
+    "role": "etudiant",
+    "date_inscription": "2026-04-26T14:18:31.586734",
+    "matricule": "",
+    "classe": "L3-INFO"
+  },
+  {
+    "id": 2,
+    "nom": "Prof. Martin",
+    "email": "martin@univ.bj",
+    "login": "martin",
+    "mot_de_passe": "b6bc7b58510319a151d168ba3d5aecb3ac0a9708d06dd930f37fbc89b6cdc697",
+    "role": "enseignant",
+    "date_inscription": "2026-04-26T14:18:31.584110",
+    "matiere": "Algorithmique"
+  }
+]

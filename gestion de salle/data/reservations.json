@@ -1,0 +1,30 @@
+[
+  {
+    "id": 1,
+    "salle_id": 1,
+    "salle_nom": "Salle A",
+    "responsable_id": 1,
+    "responsable_nom": "Alice Dupont",
+    "classe": "L3-INFO",
+    "date": "2026-05-10",
+    "heure_debut": "10:00",
+    "heure_fin": "12:00",
+    "matiere": "Algorithmique",
+    "statut": "confirmee",
+    "date_creation": "2026-04-26T14:18:31.585854"
+  },
+  {
+    "id": 3,
+    "salle_id": 1,
+    "salle_nom": "Salle A",
+    "responsable_id": 1,
+    "responsable_nom": "Alice Dupont",
+    "classe": "L2-MATH",
+    "date": "2026-05-10",
+    "heure_debut": "14:00",
+    "heure_fin": "16:00",
+    "matiere": "Maths",
+    "statut": "confirmee",
+    "date_creation": "2026-04-26T14:18:31.586242"
+  }
+]

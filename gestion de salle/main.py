@@ -1,4 +1,5 @@
-import sys, os
+import sys
+import os
 sys.path.insert(0, os.path.dirname(__file__))
 
 from datetime import date, time
@@ -9,137 +10,199 @@ from services.gestion_utilisateurs import GestionUtilisateurs
 from services.gestion_salles import GestionSalles
 from services.gestion_reservation import GestionReservation
 from services.authentification import Authentification
+from persistance.db_sqlite import BaseDonneesSQLite
+from persistance.db_json import BaseDonneesJSON
 
 
 def separator(titre: str):
-    print(f"\n{'═'*55}")
+    print(f"\n{'='*55}")
     print(f"  {titre}")
-    print('═'*55)
+    print('='*55)
 
 
-def demo():
-    # ── 1. Initialisation des services ──────────────────────────────────────
+# ==============================================================================
+# BLOC 3 — Demonstration POO (en memoire uniquement)
+# ==============================================================================
+
+def demo_poo():
+    separator("BLOC 3 — Architecture POO")
+
+    # 1. Initialisation des services
     separator("1. Initialisation des services")
-    gest_users   = GestionUtilisateurs()
-    gest_salles  = GestionSalles()
-    gest_res     = GestionReservation()
-    auth         = Authentification(gest_users)
-    print("✔ Services instanciés avec succès.")
+    gest_users  = GestionUtilisateurs()
+    gest_salles = GestionSalles()
+    gest_res    = GestionReservation()
+    auth        = Authentification(gest_users)
+    print("  Services instancies avec succes.")
 
-    # ── 2. Création de l'administrateur (directement en base) ───────────────
-    separator("2. Création de l'administrateur")
+    # 2. Creation de l'administrateur
+    separator("2. Creation de l'administrateur")
     admin = Administrateur("Dr. Admin", "admin@univ.bj", "admin", "Admin@123")
     admin.id = 0
     admin.mot_de_passe = Authentification.hacher_mot_de_passe("Admin@123")
-    # L'admin est stocké manuellement (contournement de la règle d'inscription)
     gest_users._GestionUtilisateurs__utilisateurs[0] = admin
-    print(f"✔ {admin}")
+    print(f"  {admin}")
 
-    # ── 3. Inscription d'un étudiant et d'un enseignant ─────────────────────
+    # 3. Inscription
     separator("3. Inscription des utilisateurs")
     etudiant   = Etudiant("Alice Dupont", "alice@univ.bj",
                           "alice", "Pass@123", "ETU001", "L3-INFO")
     enseignant = Enseignant("Prof. Martin", "martin@univ.bj",
                             "martin", "Pass@123", "Algorithmique")
-
     gest_users.inscrire(etudiant)
     gest_users.inscrire(enseignant)
-    print(f"✔ {etudiant}")
-    print(f"✔ {enseignant}")
+    print(f"  {etudiant}")
+    print(f"  {enseignant}")
 
-    # Tentative d'inscription en double → erreur attendue
     try:
         gest_users.inscrire(Etudiant("Bob", "b@b.com", "alice", "xxx", "E2", "L1"))
     except ValueError as e:
-        print(f"✔ Doublon bloqué : {e}")
+        print(f"  Doublon bloque : {e}")
 
-    # ── 4. Promotion au rôle Responsable ────────────────────────────────────
-    separator("4. Attribution du rôle Responsable (par l'admin)")
+    # 4. Promotion responsable
+    separator("4. Attribution du role Responsable")
     responsable = gest_users.promouvoir_responsable(admin, etudiant.id, "L3-INFO")
-    print(f"✔ Promu : {responsable}")
+    print(f"  Promu : {responsable}")
 
-    # Tentative par un non-admin → erreur attendue
     try:
         gest_users.promouvoir_responsable(enseignant, enseignant.id, "L1")
     except PermissionError as e:
-        print(f"✔ Promotion bloquée : {e}")
+        print(f"  Promotion bloquee : {e}")
 
-    # ── 5. Ajout de salles ──────────────────────────────────────────────────
+    # 5. Salles
     separator("5. Gestion des salles")
     s1 = Salle("Salle A", 40, ["Projecteur", "Tableau blanc"])
     s2 = Salle("Salle B", 30, ["Projecteur"])
     gest_salles.ajouter_salle(admin, s1)
     gest_salles.ajouter_salle(admin, s2)
-    print(f"✔ {s1}")
-    print(f"✔ {s2}")
+    print(f"  {s1}")
+    print(f"  {s2}")
 
-    # ── 6. Connexion utilisateur ─────────────────────────────────────────────
+    # 6. Connexion
     separator("6. Authentification")
     u = auth.login("alice", "Pass@123")
-    print(f"✔ Connexion réussie : {u.login} (rôle: {u.role})")
-    print(f"  Est connecté : {auth.est_connecte}")
+    print(f"  Connexion reussie : {u.login} (role: {u.role})")
 
-    # ── 7. Réservation de salle ──────────────────────────────────────────────
-    separator("7. Réservation de salle")
+    # 7. Reservations
+    separator("7. Reservation de salle")
     r1 = gest_res.ajouter_reservation(
-        salle=s1,
-        responsable=responsable,
-        classe="L3-INFO",
+        salle=s1, responsable=responsable, classe="L3-INFO",
         date_reservation=date(2026, 5, 10),
-        heure_debut=time(10, 0),
-        heure_fin=time(12, 0),
+        heure_debut=time(10, 0), heure_fin=time(12, 0),
         matiere="Algorithmique",
     )
-    print(f"✔ Réservation créée : {r1}")
+    print(f"  Reservation creee : {r1}")
 
-    # ── 8. Détection de conflit ──────────────────────────────────────────────
-    separator("8. Détection de conflit")
+    # 8. Conflit
+    separator("8. Detection de conflit")
     try:
         gest_res.ajouter_reservation(
-            salle=s1,
-            responsable=responsable,
-            classe="L2-MATH",
+            salle=s1, responsable=responsable, classe="L2-MATH",
             date_reservation=date(2026, 5, 10),
-            heure_debut=time(11, 0),   # ← chevauche 10h–12h
-            heure_fin=time(13, 0),
+            heure_debut=time(11, 0), heure_fin=time(13, 0),
             matiere="Maths",
         )
     except ValueError as e:
-        print(f"✔ Conflit détecté et bloqué : {e}")
+        print(f"  Conflit detecte et bloque : {e}")
 
-    # Réservation sans conflit (autre créneau)
     r2 = gest_res.ajouter_reservation(
-        salle=s1,
-        responsable=responsable,
-        classe="L2-MATH",
+        salle=s1, responsable=responsable, classe="L2-MATH",
         date_reservation=date(2026, 5, 10),
-        heure_debut=time(14, 0),
-        heure_fin=time(16, 0),
+        heure_debut=time(14, 0), heure_fin=time(16, 0),
         matiere="Maths",
     )
-    print(f"✔ Deuxième réservation (sans conflit) : {r2}")
+    print(f"  Deuxieme reservation (sans conflit) : {r2}")
 
-    # ── 9. Consultation du planning ──────────────────────────────────────────
+    # 9. Planning
     separator("9. Planning du 10/05/2026")
     planning = gest_res.afficher_planning(filtre_date=date(2026, 5, 10))
     for r in planning:
         print(
-            f"  [{r.salle.nom}] {r.heure_debut.strftime('%H:%M')}–"
+            f"  [{r.salle.nom}] {r.heure_debut.strftime('%H:%M')}-"
             f"{r.heure_fin.strftime('%H:%M')} | {r.classe} | {r.matiere}"
         )
 
-    # ── 10. Révocation du rôle ────────────────────────────────────────────────
-    separator("10. Révocation du rôle Responsable")
+    # 10. Revocation
+    separator("10. Revocation du role Responsable")
     revoque = gest_users.revoquer_responsable(admin, responsable.id, "etudiant")
-    print(f"✔ Rôle révoqué → {revoque}")
+    print(f"  Role revoque -> {revoque}")
 
-    # ── 11. Déconnexion ──────────────────────────────────────────────────────
-    separator("11. Déconnexion")
+    # 11. Deconnexion
+    separator("11. Deconnexion")
     auth.logout()
-    print(f"✔ Déconnecté. Est connecté : {auth.est_connecte}")
+    print(f"  Deconnecte. Est connecte : {auth.est_connecte}")
 
-    separator("Démonstration terminée avec succès ✅")
+    separator("Demonstration POO terminee avec succes")
+    return gest_users, gest_salles, gest_res
 
+
+# ==============================================================================
+# BLOC 4 — Demonstration persistance (SQLite + JSON)
+# ==============================================================================
+
+def demo_persistance(gest_users, gest_salles, gest_res):
+    separator("BLOC 4 — Persistance des donnees")
+
+    # ── SQLite ──────────────────────────────────────────────────────────────────
+    separator("SQLite — Sauvegarde")
+    bd = BaseDonneesSQLite()
+    print(f"  Base de donnees : {bd}")
+
+    # Sauvegarde des utilisateurs (admin compris — il est dans tous_les_utilisateurs)
+    tous_users = gest_users.tous_les_utilisateurs()
+    for u in tous_users:
+        bd.sauvegarder_utilisateur(u)
+    print(f"  {len(tous_users)} utilisateur(s) sauvegardes.")
+
+    # Sauvegarde des salles
+    for s in gest_salles.toutes_les_salles():
+        bd.sauvegarder_salle(s)
+    print(f"  {len(gest_salles.toutes_les_salles())} salle(s) sauvegardee(s).")
+
+    # Sauvegarde des reservations
+    for r in gest_res.toutes_les_reservations:
+        bd.sauvegarder_reservation(r)
+    print(f"  {len(gest_res.toutes_les_reservations)} reservation(s) sauvegardee(s).")
+
+    # ── SQLite — Rechargement ────────────────────────────────────────────────────
+    separator("SQLite — Rechargement depuis la base")
+    tout = bd.charger_tout()
+    print(f"  Utilisateurs charges  : {len(tout['utilisateurs'])}")
+    print(f"  Salles chargees       : {len(tout['salles'])}")
+    print(f"  Reservations chargees : {len(tout['reservations'])}")
+    for r in tout['reservations']:
+        print(
+            f"    [{r.salle.nom}] {r.heure_debut.strftime('%H:%M')}-"
+            f"{r.heure_fin.strftime('%H:%M')} | {r.classe} | statut={r.statut.value}"
+        )
+
+    # ── JSON ─────────────────────────────────────────────────────────────────────
+    separator("JSON — Sauvegarde")
+    bd_json = BaseDonneesJSON()
+    print(f"  Dossier JSON : {bd_json}")
+
+    for u in gest_users.tous_les_utilisateurs():
+        bd_json.sauvegarder_utilisateur(u)
+    for s in gest_salles.toutes_les_salles():
+        bd_json.sauvegarder_salle(s)
+    for r in gest_res.toutes_les_reservations:
+        bd_json.sauvegarder_reservation(r)
+    print("  Donnees exportees dans data/ (utilisateurs.json, salles.json, reservations.json)")
+
+    # ── JSON — Rechargement ───────────────────────────────────────────────────────
+    separator("JSON — Rechargement depuis les fichiers")
+    tout_json = bd_json.charger_tout()
+    print(f"  Utilisateurs charges  : {len(tout_json['utilisateurs'])}")
+    print(f"  Salles chargees       : {len(tout_json['salles'])}")
+    print(f"  Reservations chargees : {len(tout_json['reservations'])}")
+
+    separator("Demonstration persistance terminee avec succes")
+
+
+# ==============================================================================
+# Point d'entree
+# ==============================================================================
 
 if __name__ == "__main__":
-    demo()
+    resultats = demo_poo()
+    demo_persistance(*resultats)
