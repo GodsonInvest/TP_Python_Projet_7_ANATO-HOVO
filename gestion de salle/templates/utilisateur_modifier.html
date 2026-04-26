@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Modifier — {{ u.nom }}{% endblock %}
+{% block heading %}Modifier le compte de {{ u.nom }}{% endblock %}
+
+{% block content %}
+<div class="max-w-lg">
+  <div class="bg-white rounded-xl shadow-sm border px-8 py-6">
+
+    <!-- Badge rôle -->
+    <div class="mb-5 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center shrink-0">
+        <span class="font-bold text-indigo-600">{{ u.nom[0].upper() }}</span>
+      </div>
+      <div>
+        <p class="font-medium text-gray-800">{{ u.login }}</p>
+        <p class="text-xs text-gray-400">
+          {% if u.role == 'admin' %}Administrateur
+          {% elif u.role == 'responsable' %}Responsable — {{ u.classe }}
+          {% elif u.role == 'enseignant' %}Enseignant — {{ u.matiere or '—' }}
+          {% else %}Étudiant — {{ u.classe or '—' }}{% endif %}
+        </p>
+      </div>
+    </div>
+
+    <hr class="border-gray-100 mb-5" />
+
+    <form method="POST" class="space-y-5">
+
+      <div>
+        <label for="nom" class="block text-sm font-medium text-gray-700 mb-1">Nom complet</label>
+        <input type="text" id="nom" name="nom" value="{{ u.nom }}"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+      </div>
+
+      <div>
+        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+        <input type="email" id="email" name="email" value="{{ u.email }}"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+      </div>
+
+      {% if u.role in ('etudiant', 'responsable') %}
+      <div>
+        <label for="classe" class="block text-sm font-medium text-gray-700 mb-1">Classe</label>
+        <input type="text" id="classe" name="classe" value="{{ u.classe or '' }}"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          placeholder="ex : L3-INFO" />
+      </div>
+      {% endif %}
+
+      {% if u.role == 'enseignant' %}
+      <div>
+        <label for="matiere" class="block text-sm font-medium text-gray-700 mb-1">Matière</label>
+        <input type="text" id="matiere" name="matiere" value="{{ u.matiere or '' }}"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          placeholder="ex : Algorithmique" />
+      </div>
+      {% endif %}
+
+      <hr class="border-gray-100" />
+
+      <div>
+        <label for="nouveau_mot_de_passe" class="block text-sm font-medium text-gray-700 mb-1">
+          Réinitialiser le mot de passe
+        </label>
+        <input type="password" id="nouveau_mot_de_passe" name="nouveau_mot_de_passe"
+          minlength="6"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          placeholder="Laisser vide pour ne pas changer" />
+        <p class="mt-1 text-xs text-gray-400">En tant qu'admin, vous pouvez réinitialiser sans connaître l'ancien mot de passe.</p>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button type="submit"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
+          Enregistrer
+        </button>
+        <a href="{{ url_for('utilisateurs') }}"
+           class="text-sm text-gray-500 hover:text-gray-700 transition">Annuler</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

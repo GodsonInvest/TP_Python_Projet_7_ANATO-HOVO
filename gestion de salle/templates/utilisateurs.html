@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}Utilisateurs{% endblock %}
+{% block heading %}Gestion des utilisateurs{% endblock %}
+
+{% block content %}
+<div class="flex justify-end mb-5">
+  <a href="{{ url_for('utilisateurs_inscrire') }}"
+     class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+    </svg>
+    Nouvel utilisateur
+  </a>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  {% if utilisateurs %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+        <tr>
+          <th class="px-6 py-3 text-left">Nom</th>
+          <th class="px-6 py-3 text-left">Login</th>
+          <th class="px-6 py-3 text-left">Email</th>
+          <th class="px-6 py-3 text-left">Rôle</th>
+          <th class="px-6 py-3 text-left">Détail</th>
+          <th class="px-6 py-3 text-right">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for u in utilisateurs %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-3 font-medium text-gray-800">{{ u.nom }}</td>
+          <td class="px-6 py-3 text-gray-600 font-mono text-xs">{{ u.login }}</td>
+          <td class="px-6 py-3 text-gray-600">{{ u.email }}</td>
+          <td class="px-6 py-3">
+            {% if u.role == 'admin' %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Admin</span>
+            {% elif u.role == 'responsable' %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">Responsable</span>
+            {% elif u.role == 'enseignant' %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700">Enseignant</span>
+            {% else %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">Étudiant</span>
+            {% endif %}
+          </td>
+          <td class="px-6 py-3 text-gray-500 text-xs">
+            {% if u.role == 'etudiant' %}
+              {{ u.matricule or '—' }} · {{ u.classe or '—' }}
+            {% elif u.role == 'responsable' %}
+              Classe : {{ u.classe or '—' }}
+            {% elif u.role == 'enseignant' %}
+              {{ u.matiere or '—' }}
+            {% else %}
+              —
+            {% endif %}
+          </td>
+          <td class="px-6 py-3 text-right">
+            <div class="flex items-center justify-end gap-3 flex-wrap">
+              <!-- Modifier (tous sauf soi-même) -->
+              <a href="{{ url_for('utilisateurs_modifier', user_id=u.id) }}"
+                 class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Modifier</a>
+
+              {% if u.role != 'admin' and u.id != session.user_id %}
+                <!-- Promouvoir Responsable -->
+                {% if u.role in ('etudiant', 'enseignant') %}
+                <form method="POST" action="{{ url_for('utilisateurs_promouvoir', user_id=u.id) }}" class="inline flex items-center gap-1"
+                      onsubmit="return promptClasse(this)">
+                  <input type="hidden" name="classe" class="classe-input" value="" />
+                  <button type="submit" class="text-yellow-600 hover:text-yellow-800 text-xs font-medium">Promouvoir</button>
+                </form>
+                {% endif %}
+
+                <!-- Révoquer Responsable -->
+                {% if u.role == 'responsable' %}
+                <form method="POST" action="{{ url_for('utilisateurs_revoquer', user_id=u.id) }}" class="inline"
+                      onsubmit="return confirm('Révoquer le rôle Responsable de {{ u.nom }} ?')">
+                  <input type="hidden" name="nouveau_role" value="etudiant" />
+                  <button type="submit" class="text-orange-500 hover:text-orange-700 text-xs font-medium">Révoquer</button>
+                </form>
+                {% endif %}
+
+                <!-- Supprimer -->
+                <form method="POST" action="{{ url_for('utilisateurs_supprimer', user_id=u.id) }}" class="inline"
+                      onsubmit="return confirm('Supprimer l\'utilisateur {{ u.nom }} ?')">
+                  <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Supprimer</button>
+                </form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="px-6 py-12 text-center text-gray-400">Aucun utilisateur enregistré.</p>
+  {% endif %}
+</div>
+
+<script>
+function promptClasse(form) {
+  const classe = prompt("Classe du responsable (ex : L3-INFO) :");
+  if (!classe || !classe.trim()) return false;
+  form.querySelector('.classe-input').value = classe.trim();
+  return true;
+}
+</script>
+{% endblock %}

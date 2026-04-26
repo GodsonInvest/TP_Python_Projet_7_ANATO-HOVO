@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+{% block title %}Réservations{% endblock %}
+{% block heading %}Planning des réservations{% endblock %}
+
+{% block content %}
+<!-- Filtres -->
+<div class="bg-white rounded-xl shadow-sm border px-6 py-4 mb-5">
+  <form method="GET" action="{{ url_for('reservations') }}" class="flex flex-wrap gap-3 items-end">
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Date</label>
+      <input type="date" name="date" value="{{ filtre_date }}"
+        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Salle</label>
+      <select name="salle_id"
+        class="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+        <option value="">Toutes les salles</option>
+        {% for s in salles %}
+          <option value="{{ s.id }}" {% if filtre_salle == s.id|string %}selected{% endif %}>{{ s.nom }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Classe</label>
+      <input type="text" name="classe" value="{{ filtre_classe }}" placeholder="ex : L3-INFO"
+        class="rounded-lg border border-gray-300 px-3 py-2 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Places min.</label>
+      <input type="number" name="places_min" value="{{ filtre_places }}" min="1" placeholder="ex : 30"
+        class="rounded-lg border border-gray-300 px-3 py-2 text-sm w-24 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+    </div>
+    <div class="flex gap-2">
+      <button type="submit"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition">
+        Filtrer
+      </button>
+      {% if filtre_date or filtre_salle or filtre_classe or filtre_places %}
+      <a href="{{ url_for('reservations') }}"
+        class="text-sm text-gray-500 hover:text-gray-700 px-3 py-2 transition">Réinitialiser</a>
+      {% endif %}
+    </div>
+  </form>
+</div>
+
+<!-- Bouton nouvelle réservation -->
+{% if peut_gerer %}
+<div class="flex justify-end mb-4">
+  <a href="{{ url_for('reservation_ajouter') }}"
+     class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+    </svg>
+    Nouvelle réservation
+  </a>
+</div>
+{% endif %}
+
+<!-- Table -->
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  {% if reservations %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+        <tr>
+          <th class="px-5 py-3 text-left">Salle</th>
+          <th class="px-5 py-3 text-left">Classe</th>
+          <th class="px-5 py-3 text-left">Matière</th>
+          <th class="px-5 py-3 text-left">Date</th>
+          <th class="px-5 py-3 text-left">Horaire</th>
+          <th class="px-5 py-3 text-left">Places</th>
+          <th class="px-5 py-3 text-left">Responsable</th>
+          <th class="px-5 py-3 text-left">Statut</th>
+          {% if peut_gerer %}
+          <th class="px-5 py-3 text-right">Actions</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for r in reservations %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-5 py-3 font-medium text-gray-800">{{ r.salle.nom }}</td>
+          <td class="px-5 py-3 text-gray-600">{{ r.classe }}</td>
+          <td class="px-5 py-3 text-gray-600">{{ r.matiere or '—' }}</td>
+          <td class="px-5 py-3 text-gray-600">{{ r.date.strftime('%d/%m/%Y') }}</td>
+          <td class="px-5 py-3 text-gray-600">{{ r.heure_debut.strftime('%H:%M') }} – {{ r.heure_fin.strftime('%H:%M') }}</td>
+          <td class="px-5 py-3 text-gray-600">{{ r.salle.capacite }}</td>
+          <td class="px-5 py-3 text-gray-600">{{ r.responsable.nom }}</td>
+          <td class="px-5 py-3">
+            {% if r.statut == StatutReservation.CONFIRMEE %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Confirmée</span>
+            {% elif r.statut.value == 'en_attente' %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">En attente</span>
+            {% elif r.statut.value == 'annulee' %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Annulée</span>
+            {% else %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Terminée</span>
+            {% endif %}
+          </td>
+          {% if peut_gerer %}
+          <td class="px-5 py-3 text-right">
+            {% if r.statut.value not in ('annulee', 'terminee') %}
+            <div class="flex items-center justify-end gap-3">
+              <a href="{{ url_for('reservation_modifier', res_id=r.id) }}"
+                 class="text-indigo-600 hover:text-indigo-800 text-xs font-medium">Modifier</a>
+              <form method="POST" action="{{ url_for('reservation_annuler', res_id=r.id) }}" class="inline"
+                    onsubmit="return confirm('Annuler cette réservation ?')">
+                <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Annuler</button>
+              </form>
+            </div>
+            {% else %}
+            <span class="text-gray-300 text-xs">—</span>
+            {% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="px-6 py-12 text-center text-gray-400">Aucune réservation trouvée.</p>
+  {% endif %}
+</div>
+{% endblock %}

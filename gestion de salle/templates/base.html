@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Réservation de salles{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-indigo-900 text-white flex flex-col min-h-screen fixed top-0 left-0">
+    <div class="px-6 py-5 border-b border-indigo-700">
+      <h1 class="text-lg font-bold leading-tight">Réservation<br>de salles</h1>
+      <p class="text-xs text-indigo-300 mt-1">{{ session.user_nom }}</p>
+      {% set role = session.user_role %}
+      {% if role == 'admin' %}
+        <span class="inline-block mt-1 px-2 py-0.5 rounded text-xs font-semibold bg-red-500">Admin</span>
+      {% elif role == 'responsable' %}
+        <span class="inline-block mt-1 px-2 py-0.5 rounded text-xs font-semibold bg-yellow-400 text-yellow-900">Responsable</span>
+      {% elif role == 'enseignant' %}
+        <span class="inline-block mt-1 px-2 py-0.5 rounded text-xs font-semibold bg-blue-400">Enseignant</span>
+      {% else %}
+        <span class="inline-block mt-1 px-2 py-0.5 rounded text-xs font-semibold bg-indigo-400">Étudiant</span>
+      {% endif %}
+    </div>
+
+    <nav class="flex-1 px-3 py-4 space-y-1">
+      <a href="{{ url_for('dashboard') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition
+                {% if active == 'dashboard' %}bg-indigo-700 font-semibold{% else %}hover:bg-indigo-800 text-indigo-200{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7m-9 5v6h4v-6m6 6V10"/>
+        </svg>
+        Tableau de bord
+      </a>
+
+      <a href="{{ url_for('salles') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition
+                {% if active == 'salles' %}bg-indigo-700 font-semibold{% else %}hover:bg-indigo-800 text-indigo-200{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 21H5a2 2 0 01-2-2V7l7-4 7 4v12a2 2 0 01-2 2z"/>
+        </svg>
+        Salles
+      </a>
+
+      <a href="{{ url_for('reservations') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition
+                {% if active == 'reservations' %}bg-indigo-700 font-semibold{% else %}hover:bg-indigo-800 text-indigo-200{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        Réservations
+      </a>
+
+      {% if session.user_role == 'admin' %}
+      <a href="{{ url_for('utilisateurs') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition
+                {% if active == 'utilisateurs' %}bg-indigo-700 font-semibold{% else %}hover:bg-indigo-800 text-indigo-200{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a4 4 0 00-4-4h-1M9 20H4v-2a4 4 0 014-4h1m4-4a4 4 0 100-8 4 4 0 000 8z"/>
+        </svg>
+        Utilisateurs
+      </a>
+
+      <a href="{{ url_for('parametres') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition
+                {% if active == 'parametres' %}bg-indigo-700 font-semibold{% else %}hover:bg-indigo-800 text-indigo-200{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Paramètres
+      </a>
+      {% endif %}
+    </nav>
+
+    <div class="px-3 py-4 border-t border-indigo-700 space-y-1">
+      <a href="{{ url_for('profil') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition
+                {% if active == 'profil' %}bg-indigo-700 font-semibold{% else %}hover:bg-indigo-800 text-indigo-200{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5.121 17.804A8.966 8.966 0 0112 15c2.21 0 4.234.8 5.879 2.118M15 11a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Mon profil
+      </a>
+      <a href="{{ url_for('logout') }}"
+         class="flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-indigo-300 hover:bg-indigo-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+        </svg>
+        Déconnexion
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <div class="ml-64 flex-1 flex flex-col">
+    <header class="bg-white border-b px-8 py-4">
+      <h2 class="text-xl font-semibold text-gray-800">{% block heading %}{% endblock %}</h2>
+    </header>
+
+    <main class="flex-1 px-8 py-6">
+      <!-- Flash messages -->
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for category, message in messages %}
+          {% if category == 'success' %}
+            <div class="mb-4 flex items-center gap-3 rounded-lg border border-green-300 bg-green-50 px-4 py-3 text-green-800 text-sm">
+              <svg class="w-5 h-5 text-green-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+              </svg>
+              {{ message }}
+            </div>
+          {% elif category == 'warning' %}
+            <div class="mb-4 flex items-center gap-3 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-yellow-800 text-sm">
+              <svg class="w-5 h-5 text-yellow-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+              </svg>
+              {{ message }}
+            </div>
+          {% else %}
+            <div class="mb-4 flex items-center gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-red-800 text-sm">
+              <svg class="w-5 h-5 text-red-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+              </svg>
+              {{ message }}
+            </div>
+          {% endif %}
+        {% endfor %}
+      {% endwith %}
+
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+</body>
+</html>

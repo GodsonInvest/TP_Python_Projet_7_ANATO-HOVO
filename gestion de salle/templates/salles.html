@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Salles{% endblock %}
+{% block heading %}Gestion des salles{% endblock %}
+
+{% block content %}
+<div class="flex justify-end mb-5">
+  {% if session.user_role == 'admin' %}
+  <a href="{{ url_for('salles_ajouter') }}"
+     class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-4 py-2 rounded-lg transition">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+    </svg>
+    Ajouter une salle
+  </a>
+  {% endif %}
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+  {% if salles %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+        <tr>
+          <th class="px-6 py-3 text-left">Nom</th>
+          <th class="px-6 py-3 text-left">Capacité</th>
+          <th class="px-6 py-3 text-left">Équipements</th>
+          <th class="px-6 py-3 text-left">Disponibilité</th>
+          {% if session.user_role == 'admin' %}
+          <th class="px-6 py-3 text-right">Actions</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for s in salles %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-4 font-medium text-gray-800">{{ s.nom }}</td>
+          <td class="px-6 py-4 text-gray-600">{{ s.capacite }} places</td>
+          <td class="px-6 py-4 text-gray-600">
+            {% if s.equipements %}
+              {% for eq in s.equipements %}
+                <span class="inline-block mr-1 mb-1 px-2 py-0.5 rounded bg-gray-100 text-gray-700 text-xs">{{ eq }}</span>
+              {% endfor %}
+            {% else %}
+              <span class="text-gray-400">—</span>
+            {% endif %}
+          </td>
+          <td class="px-6 py-4">
+            {% if s.disponible %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Disponible</span>
+            {% else %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Indisponible</span>
+            {% endif %}
+          </td>
+          {% if session.user_role == 'admin' %}
+          <td class="px-6 py-4 text-right space-x-2">
+            <a href="{{ url_for('salles_modifier', salle_id=s.id) }}"
+               class="inline-block text-indigo-600 hover:text-indigo-800 text-xs font-medium">Modifier</a>
+            <form method="POST" action="{{ url_for('salles_supprimer', salle_id=s.id) }}" class="inline"
+                  onsubmit="return confirm('Supprimer la salle « {{ s.nom }} » ?')">
+              <button type="submit" class="text-red-500 hover:text-red-700 text-xs font-medium">Supprimer</button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="px-6 py-12 text-center text-gray-400">Aucune salle enregistrée.</p>
+  {% endif %}
+</div>
+{% endblock %}

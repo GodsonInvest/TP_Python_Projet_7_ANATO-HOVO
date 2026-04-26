@@ -6,7 +6,7 @@
     "login": "admin",
     "mot_de_passe": "e86f78a8a3caf0b60d8e74e5942aa6d86dc150cd3c03338aef25b7d2d7e3acc7",
     "role": "admin",
-    "date_inscription": "2026-04-26T18:01:08.569082"
+    "date_inscription": "2026-04-26T18:28:11.696052"
   },
   {
     "id": 1,
@@ -15,7 +15,7 @@
     "login": "alice",
     "mot_de_passe": "b6bc7b58510319a151d168ba3d5aecb3ac0a9708d06dd930f37fbc89b6cdc697",
     "role": "etudiant",
-    "date_inscription": "2026-04-26T18:01:08.569376",
+    "date_inscription": "2026-04-26T18:28:11.699464",
     "matricule": "",
     "classe": "L3-INFO"
   },
@@ -26,7 +26,7 @@
     "login": "martin",
     "mot_de_passe": "b6bc7b58510319a151d168ba3d5aecb3ac0a9708d06dd930f37fbc89b6cdc697",
     "role": "enseignant",
-    "date_inscription": "2026-04-26T18:01:08.569165",
+    "date_inscription": "2026-04-26T18:28:11.696626",
     "matiere": "Algorithmique"
   }
 ]

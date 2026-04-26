@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord{% endblock %}
+{% block heading %}Tableau de bord{% endblock %}
+
+{% block content %}
+<!-- Stat cards -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+  <div class="bg-white rounded-xl shadow-sm border p-5">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Salles</p>
+    <p class="mt-2 text-3xl font-bold text-indigo-700">{{ nb_salles }}</p>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm border p-5">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Utilisateurs</p>
+    <p class="mt-2 text-3xl font-bold text-indigo-700">{{ nb_utilisateurs }}</p>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm border p-5">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Réservations confirmées</p>
+    <p class="mt-2 text-3xl font-bold text-green-600">{{ nb_confirmees }}</p>
+  </div>
+  <div class="bg-white rounded-xl shadow-sm border p-5">
+    <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Cours aujourd'hui</p>
+    <p class="mt-2 text-3xl font-bold text-yellow-500">{{ nb_ce_jour }}</p>
+  </div>
+</div>
+
+<!-- Recent reservations -->
+<div class="bg-white rounded-xl shadow-sm border">
+  <div class="px-6 py-4 border-b flex items-center justify-between">
+    <h3 class="font-semibold text-gray-800">Réservations récentes</h3>
+    <a href="{{ url_for('reservations') }}" class="text-sm text-indigo-600 hover:underline">Voir tout</a>
+  </div>
+
+  {% if reservations_recentes %}
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-gray-500 text-xs uppercase">
+        <tr>
+          <th class="px-6 py-3 text-left">Salle</th>
+          <th class="px-6 py-3 text-left">Classe</th>
+          <th class="px-6 py-3 text-left">Date</th>
+          <th class="px-6 py-3 text-left">Horaire</th>
+          <th class="px-6 py-3 text-left">Statut</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for r in reservations_recentes %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-6 py-3 font-medium text-gray-800">{{ r.salle.nom }}</td>
+          <td class="px-6 py-3 text-gray-600">{{ r.classe }}</td>
+          <td class="px-6 py-3 text-gray-600">{{ r.date.strftime('%d/%m/%Y') }}</td>
+          <td class="px-6 py-3 text-gray-600">{{ r.heure_debut.strftime('%H:%M') }} – {{ r.heure_fin.strftime('%H:%M') }}</td>
+          <td class="px-6 py-3">
+            {% if r.statut.value == 'confirmee' %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700">Confirmée</span>
+            {% elif r.statut.value == 'en_attente' %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-700">En attente</span>
+            {% elif r.statut.value == 'annulee' %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700">Annulée</span>
+            {% else %}
+              <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-600">Terminée</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="px-6 py-8 text-center text-gray-400 text-sm">Aucune réservation pour le moment.</p>
+  {% endif %}
+</div>
+{% endblock %}

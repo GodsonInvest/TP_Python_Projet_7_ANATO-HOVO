@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Nouvelle réservation{% endblock %}
+{% block heading %}Nouvelle réservation{% endblock %}
+
+{% block content %}
+<div class="max-w-lg">
+  <div class="bg-white rounded-xl shadow-sm border px-8 py-6">
+    <form method="POST" class="space-y-5">
+
+      <div>
+        <label for="salle_id" class="block text-sm font-medium text-gray-700 mb-1">Salle <span class="text-red-500">*</span></label>
+        <select id="salle_id" name="salle_id" required
+                class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+          <option value="">— Choisir une salle —</option>
+          {% for s in salles %}
+          <option value="{{ s.id }}">{{ s.nom }} ({{ s.capacite }} places)</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="classe" class="block text-sm font-medium text-gray-700 mb-1">Classe <span class="text-red-500">*</span></label>
+        <input
+          type="text" id="classe" name="classe" required
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          placeholder="ex : L3-INFO"
+        />
+      </div>
+
+      <div>
+        <label for="matiere" class="block text-sm font-medium text-gray-700 mb-1">Matière</label>
+        <input
+          type="text" id="matiere" name="matiere"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          placeholder="ex : Algorithmique"
+        />
+      </div>
+
+      <div>
+        <label for="date" class="block text-sm font-medium text-gray-700 mb-1">Date <span class="text-red-500">*</span></label>
+        <input
+          type="date" id="date" name="date" required min="{{ today }}"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+        />
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label for="heure_debut" class="block text-sm font-medium text-gray-700 mb-1">Début <span class="text-red-500">*</span></label>
+          <input
+            type="time" id="heure_debut" name="heure_debut" required
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          />
+        </div>
+        <div>
+          <label for="heure_fin" class="block text-sm font-medium text-gray-700 mb-1">Fin <span class="text-red-500">*</span></label>
+          <input
+            type="time" id="heure_fin" name="heure_fin" required
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
+          />
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3 pt-2">
+        <button
+          type="submit"
+          class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
+          Créer la réservation
+        </button>
+        <a href="{{ url_for('reservations') }}"
+           class="text-sm text-gray-500 hover:text-gray-700 transition">Annuler</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

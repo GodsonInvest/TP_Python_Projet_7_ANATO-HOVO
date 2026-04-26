@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block title %}Paramètres SMTP{% endblock %}
+{% block heading %}Paramètres — Configuration email{% endblock %}
+
+{% block content %}
+<div class="max-w-xl space-y-6">
+
+  <!-- Formulaire SMTP -->
+  <div class="bg-white rounded-xl shadow-sm border px-8 py-6">
+    <h3 class="font-semibold text-gray-800 mb-5">Serveur SMTP</h3>
+
+    <form method="POST" action="{{ url_for('parametres') }}" class="space-y-5">
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="col-span-2 sm:col-span-1">
+          <label for="smtp_host" class="block text-sm font-medium text-gray-700 mb-1">Hôte SMTP <span class="text-red-500">*</span></label>
+          <input type="text" id="smtp_host" name="smtp_host"
+            value="{{ cfg.get('smtp_host', '') }}"
+            placeholder="smtp.gmail.com"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+        </div>
+        <div>
+          <label for="smtp_port" class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+          <input type="number" id="smtp_port" name="smtp_port"
+            value="{{ cfg.get('smtp_port', '587') }}"
+            placeholder="587"
+            class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+        </div>
+      </div>
+
+      <div>
+        <label for="smtp_user" class="block text-sm font-medium text-gray-700 mb-1">Adresse email expéditeur <span class="text-red-500">*</span></label>
+        <input type="email" id="smtp_user" name="smtp_user"
+          value="{{ cfg.get('smtp_user', '') }}"
+          placeholder="noreply@univ.bj"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+      </div>
+
+      <div>
+        <label for="smtp_nom" class="block text-sm font-medium text-gray-700 mb-1">Nom d'affichage de l'expéditeur</label>
+        <input type="text" id="smtp_nom" name="smtp_nom"
+          value="{{ cfg.get('smtp_nom', '') }}"
+          placeholder="Université — Réservation de salles"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+      </div>
+
+      <div>
+        <label for="smtp_pass" class="block text-sm font-medium text-gray-700 mb-1">
+          Mot de passe / Clé d'application <span class="text-red-500">*</span>
+        </label>
+        <input type="password" id="smtp_pass" name="smtp_pass"
+          placeholder="{% if cfg.get('smtp_pass') %}••••••••••• (laisser vide pour ne pas changer){% else %}Mot de passe SMTP{% endif %}"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+        {% if cfg.get('smtp_pass') %}
+        <p class="mt-1 text-xs text-green-600">Un mot de passe est déjà enregistré. Laissez vide pour le conserver.</p>
+        {% endif %}
+      </div>
+
+      <!-- Info Gmail -->
+      <div class="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-xs text-blue-800">
+        <p class="font-semibold mb-1">Gmail — Clé d'application (recommandé)</p>
+        <p>1. Activez l'authentification à 2 facteurs sur votre compte Google.</p>
+        <p>2. Allez dans <strong>Compte Google → Sécurité → Mots de passe des applications</strong>.</p>
+        <p>3. Créez une clé pour « Autre (nom personnalisé) ».</p>
+        <p>4. Collez la clé générée (16 caractères) dans le champ ci-dessus.</p>
+        <p class="mt-1">Hôte : <code class="bg-blue-100 px-1 rounded">smtp.gmail.com</code> · Port : <code class="bg-blue-100 px-1 rounded">587</code></p>
+      </div>
+
+      <button type="submit"
+        class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold px-5 py-2 rounded-lg transition">
+        Enregistrer
+      </button>
+    </form>
+  </div>
+
+  <!-- Test d'envoi -->
+  <div class="bg-white rounded-xl shadow-sm border px-8 py-6">
+    <h3 class="font-semibold text-gray-800 mb-1">Tester la configuration</h3>
+    <p class="text-sm text-gray-500 mb-4">Un email de test sera envoyé à l'adresse indiquée.</p>
+
+    <form method="POST" action="{{ url_for('parametres_tester') }}" class="flex gap-3 items-end">
+      <div class="flex-1">
+        <label for="email_test" class="block text-sm font-medium text-gray-700 mb-1">Adresse de destination</label>
+        <input type="email" id="email_test" name="email_test" required
+          placeholder="admin@univ.bj"
+          class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 transition" />
+      </div>
+      <button type="submit"
+        class="bg-gray-700 hover:bg-gray-800 text-white text-sm font-semibold px-4 py-2 rounded-lg transition whitespace-nowrap">
+        Envoyer le test
+      </button>
+    </form>
+
+    <!-- Statut de la configuration -->
+    <div class="mt-4 pt-4 border-t">
+      <p class="text-xs font-medium text-gray-500 mb-2">Statut actuel</p>
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div class="flex items-center gap-2">
+          {% if cfg.get('smtp_host') %}
+            <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+            <span class="text-gray-700">Hôte : <strong>{{ cfg.smtp_host }}</strong></span>
+          {% else %}
+            <span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+            <span class="text-gray-400">Hôte non configuré</span>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-2">
+          {% if cfg.get('smtp_user') %}
+            <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+            <span class="text-gray-700">Compte : <strong>{{ cfg.smtp_user }}</strong></span>
+          {% else %}
+            <span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+            <span class="text-gray-400">Compte non configuré</span>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-2">
+          {% if cfg.get('smtp_port') %}
+            <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+            <span class="text-gray-700">Port : <strong>{{ cfg.smtp_port }}</strong></span>
+          {% else %}
+            <span class="w-2 h-2 rounded-full bg-yellow-400 inline-block"></span>
+            <span class="text-gray-400">Port par défaut (587)</span>
+          {% endif %}
+        </div>
+        <div class="flex items-center gap-2">
+          {% if cfg.get('smtp_pass') %}
+            <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+            <span class="text-gray-700">Mot de passe enregistré</span>
+          {% else %}
+            <span class="w-2 h-2 rounded-full bg-red-400 inline-block"></span>
+            <span class="text-gray-400">Mot de passe manquant</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -80,6 +80,11 @@ class BaseDonneesSQLite:
             FOREIGN KEY (salle_id)       REFERENCES salles(id),
             FOREIGN KEY (responsable_id) REFERENCES utilisateurs(id)
         );
+
+        CREATE TABLE IF NOT EXISTS config (
+            cle    TEXT PRIMARY KEY,
+            valeur TEXT NOT NULL DEFAULT ''
+        );
         """
         with self._connexion() as conn:
             conn.executescript(ddl)
@@ -287,6 +292,26 @@ class BaseDonneesSQLite:
         if reservations:
             Reservation._compteur = max(r.id for r in reservations)
         return {"utilisateurs": utilisateurs, "salles": salles, "reservations": reservations}
+
+    # ── Configuration SMTP ────────────────────────────────────────────────────────
+
+    def lire_config(self, cle: str, defaut: str = "") -> str:
+        with self._connexion() as conn:
+            row = conn.execute("SELECT valeur FROM config WHERE cle = ?", (cle,)).fetchone()
+        return row["valeur"] if row else defaut
+
+    def ecrire_config(self, cle: str, valeur: str):
+        with self._connexion() as conn:
+            conn.execute(
+                "INSERT INTO config (cle, valeur) VALUES (?, ?) "
+                "ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur",
+                (cle, valeur),
+            )
+
+    def charger_config(self) -> dict:
+        with self._connexion() as conn:
+            rows = conn.execute("SELECT cle, valeur FROM config").fetchall()
+        return {r["cle"]: r["valeur"] for r in rows}
 
     def __repr__(self) -> str:
         return f"<BaseDonneesSQLite '{self._chemin_db}'>"
