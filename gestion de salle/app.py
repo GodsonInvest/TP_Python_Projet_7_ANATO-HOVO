@@ -41,6 +41,35 @@ def get_bd():
     return BaseDonneesSQLite()
 
 
+def _get_unites_dict():
+    """Cache par requête des unités de formation {id: UniteFormation}."""
+    from flask import g
+    if not hasattr(g, 'unites_dict'):
+        g.unites_dict = {u.id: u for u in get_bd().charger_toutes_unites()}
+    return g.unites_dict
+
+
+def _format_classe(classe: str) -> str:
+    """Convertit 'U15,U17' en 'L1-IG, L3-IG'. Supporte aussi les anciens formats texte."""
+    if not classe:
+        return ''
+    unites = _get_unites_dict()
+    parts = []
+    for c in classe.split(','):
+        c = c.strip()
+        if c.startswith('U') and c[1:].isdigit():
+            u = unites.get(int(c[1:]))
+            parts.append(f"{u.niveau}-{u.abreviation or u.nom[:6]}" if u else c)
+        else:
+            parts.append(c)
+    return ', '.join(parts)
+
+
+@app.context_processor
+def inject_format_classe():
+    return dict(format_classe=_format_classe)
+
+
 def get_data():
     bd   = get_bd()
     tout = bd.charger_tout()
@@ -123,13 +152,24 @@ def _notifier(reservation, utilisateurs, annulation=False):
     if notif is None:
         return
     try:
-        # Supporte plusieurs classes séparées par virgule (ex: "L1,L2,L3")
-        niveaux_res = {_niveau(c) for c in reservation.classe.split(",") if c.strip()}
+        classe = reservation.classe or ""
+        parties = [c.strip() for c in classe.split(",") if c.strip()]
 
-        etudiants = [
-            u for u in utilisateurs.values()
-            if isinstance(u, Etudiant) and _niveau(u.classe) in niveaux_res
-        ]
+        if any(c.startswith("U") and c[1:].isdigit() for c in parties):
+            # Nouveau format : "U15,U17" → match par unite_formation_id
+            ids = {int(c[1:]) for c in parties if c.startswith("U") and c[1:].isdigit()}
+            etudiants = [
+                u for u in utilisateurs.values()
+                if isinstance(u, Etudiant) and u.unite_formation_id in ids
+            ]
+        else:
+            # Ancien format texte : "L3" ou "L1,L2" → match par niveau
+            niveaux_res = {_niveau(c) for c in parties}
+            etudiants = [
+                u for u in utilisateurs.values()
+                if isinstance(u, Etudiant) and _niveau(u.classe) in niveaux_res
+            ]
+
         enseignant = next(
             (u for u in utilisateurs.values()
              if isinstance(u, Enseignant) and u.matiere == reservation.matiere),
@@ -608,9 +648,9 @@ def reservation_ajouter():
 
     if request.method == "POST":
         salle_id  = request.form.get("salle_id", "")
-        # Niveaux cochés (multi-valeur) ou champ texte de secours
-        niveaux   = request.form.getlist("niveaux")
-        classe    = ",".join(sorted(niveaux)) if niveaux else request.form.get("classe", "").strip()
+        # Unités cochées (ex: ["U15","U17"]) ou champ texte de secours
+        unites_cb = request.form.getlist("unites")
+        classe    = ",".join(unites_cb) if unites_cb else request.form.get("classe", "").strip()
         date_str  = request.form.get("date", "").strip()
         debut_str = request.form.get("heure_debut", "").strip()
         fin_str   = request.form.get("heure_fin", "").strip()
@@ -641,11 +681,13 @@ def reservation_ajouter():
             except (ValueError, PermissionError) as e:
                 flash(str(e), "error")
 
+    pre_ecole_id = getattr(u_courant, "ecole_id", None)
     return render_template(
         "reservation_form.html", active="reservations",
         salles=list(salles_dict.values()),
         today=date.today().isoformat(),
         pre_classe=pre_classe,
+        pre_ecole_id=pre_ecole_id,
         ecoles_filieres=ecoles_filieres,
         unites_json=unites_json,
         user_role=session.get("user_role"),

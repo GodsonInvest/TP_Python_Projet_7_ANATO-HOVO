@@ -95,7 +95,7 @@
         <!-- Info -->
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="font-semibold text-slate-700 text-sm">{{ r.classe }}</span>
+            <span class="font-semibold text-slate-700 text-sm">{{ format_classe(r.classe) }}</span>
             {% if r.matiere %}
             <span class="text-xs text-slate-400 italic">{{ r.matiere }}</span>
             {% endif %}
@@ -140,7 +140,7 @@
         </div>
         <div class="w-px h-8 bg-slate-100 shrink-0"></div>
         <div class="flex-1 min-w-0">
-          <span class="font-medium text-slate-600 text-sm">{{ r.classe }}</span>
+          <span class="font-medium text-slate-600 text-sm">{{ format_classe(r.classe) }}</span>
           <span class="text-xs text-slate-400 ml-2 font-mono">{{ r.heure_debut.strftime('%H:%M') }}–{{ r.heure_fin.strftime('%H:%M') }}</span>
         </div>
         <span class="text-xs text-slate-300">Terminée</span>

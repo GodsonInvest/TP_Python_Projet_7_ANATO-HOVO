@@ -113,7 +113,7 @@
         <tr class="data-row border-b border-slate-50 last:border-0">
           <td class="px-6 py-3.5 font-medium text-slate-800">{{ r.salle.nom }}</td>
           <td class="px-6 py-3.5 text-slate-600">
-            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium">{{ r.classe }}</span>
+            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium">{{ format_classe(r.classe) }}</span>
           </td>
           <td class="px-6 py-3.5 text-slate-600 text-xs">{{ r.date.strftime('%d/%m/%Y') }}</td>
           <td class="px-6 py-3.5 text-slate-600 font-mono text-xs">{{ r.heure_debut.strftime('%H:%M') }} – {{ r.heure_fin.strftime('%H:%M') }}</td>
@@ -202,7 +202,7 @@
             </div>
           </td>
           <td class="px-6 py-3.5">
-            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium">{{ r.classe }}</span>
+            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium">{{ format_classe(r.classe) }}</span>
           </td>
           <td class="px-6 py-3.5 text-slate-500 text-xs">{{ r.matiere or '—' }}</td>
         </tr>

@@ -112,7 +112,7 @@
                   background: {{ b.c.bg }}; color: {{ b.c.text }}; border-color: {{ b.c.border }}">
           <p class="text-xs font-bold leading-tight truncate">{{ b.r.salle.nom }}</p>
           {% if b.height >= 40 %}
-          <p class="text-xs leading-tight truncate opacity-80">{{ b.r.classe }}</p>
+          <p class="text-xs leading-tight truncate opacity-80">{{ format_classe(b.r.classe) }}</p>
           {% endif %}
           {% if b.height >= 56 %}
           <p class="text-xs leading-tight truncate opacity-70">

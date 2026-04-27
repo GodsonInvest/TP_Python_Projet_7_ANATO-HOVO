@@ -39,40 +39,53 @@
           </select>
         </div>
 
-        <!-- Classe(s) concernée(s) -->
+        <!-- École -->
         <div>
-          <label class="block text-sm font-medium text-slate-700 mb-2">
-            Classe(s) concernée(s) <span class="text-red-500">*</span>
-          </label>
-          <p class="text-xs text-slate-400 mb-3">Sélectionnez un ou plusieurs niveaux. Le mail sera envoyé à tous les étudiants des niveaux cochés.</p>
-
-          <div class="flex flex-wrap gap-2 mb-3">
-            {% for niv in ['L1','L2','L3','M1','M2'] %}
-            <label class="cursor-pointer select-none">
-              <input type="checkbox" name="niveaux" value="{{ niv }}" class="sr-only niveau-cb"
-                {% if pre_classe and pre_classe.startswith(niv) %}checked{% endif %}
-                onchange="updateClasse()"/>
-              <span class="niveau-chip inline-flex items-center justify-center w-12 py-2 rounded-xl border-2 text-sm font-bold transition-all
-                {% if pre_classe and pre_classe.startswith(niv) %}
-                  border-indigo-600 bg-indigo-600 text-white
-                {% else %}
-                  border-slate-200 bg-white text-slate-500 hover:border-indigo-300
-                {% endif %}">
-                {{ niv }}
-              </span>
-            </label>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">École / Faculté <span class="text-red-500">*</span></label>
+          <select id="ecole-select" onchange="filterUnites()"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            <option value="">— Sélectionner une école —</option>
+            {% for ef in ecoles_filieres %}
+            <option value="{{ ef.ecole.id }}"
+              {% if pre_ecole_id and ef.ecole.id == pre_ecole_id %}selected{% endif %}>
+              {% if ef.ecole.abreviation %}{{ ef.ecole.abreviation }} — {% endif %}{{ ef.ecole.nom }}
+            </option>
             {% endfor %}
-          </div>
+          </select>
+        </div>
 
-          <!-- Champ caché soumis au formulaire -->
-          <input type="hidden" name="classe" id="classe-final"
-            value="{{ pre_classe }}" required/>
-
-          <!-- Aperçu des classes sélectionnées -->
-          <div id="classe-apercu" class="{% if not pre_classe %}hidden {% endif %}flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 border border-indigo-100">
-            <svg class="w-3.5 h-3.5 text-indigo-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-            <span class="text-xs text-indigo-700 font-medium">Notification envoyée à : <strong id="classe-apercu-txt">{{ pre_classe }}</strong></span>
+        <!-- Filières / niveaux de l'école (cases à cocher) -->
+        <div id="unites-container" class="{% if not pre_ecole_id %}hidden {% endif %}">
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            Filière(s) / Niveau(x) <span class="text-red-500">*</span>
+          </label>
+          <p class="text-xs text-slate-400 mb-2">Le mail partira à tous les étudiants des filières cochées.</p>
+          <div id="unites-list" class="space-y-2">
+            {% if pre_ecole_id %}
+              {% for ef in ecoles_filieres %}{% if ef.ecole.id == pre_ecole_id %}
+                {% for u in ef.unites %}
+                <label class="flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50 transition-all">
+                  <input type="checkbox" name="unites" value="U{{ u.id }}" class="unite-cb w-4 h-4 accent-indigo-600"
+                    {% if pre_classe and ('U'+u.id|string) in pre_classe %}checked{% endif %}
+                    onchange="updateClasse()"/>
+                  <span class="flex-1 text-sm">
+                    <span class="font-semibold text-slate-700">{{ u.niveau }}</span>
+                    <span class="text-slate-500"> — {{ u.nom }}{% if u.abreviation %} ({{ u.abreviation }}){% endif %}</span>
+                  </span>
+                </label>
+                {% endfor %}
+              {% endif %}{% endfor %}
+            {% endif %}
           </div>
+        </div>
+
+        <!-- Champ classe caché -->
+        <input type="hidden" name="classe" id="classe-final" value="{{ pre_classe }}"/>
+
+        <!-- Aperçu -->
+        <div id="classe-apercu" class="{% if not pre_classe %}hidden {% endif %}flex items-center gap-2 px-3 py-2.5 rounded-xl bg-indigo-50 border border-indigo-100">
+          <svg class="w-3.5 h-3.5 text-indigo-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span class="text-xs text-indigo-700 font-medium">Notifié : <strong id="classe-apercu-txt"></strong></span>
         </div>
 
         <!-- Matière -->
@@ -118,27 +131,52 @@
 </div>
 
 <script>
-function updateClasse() {
-  const checked = [...document.querySelectorAll('.niveau-cb:checked')].map(cb => cb.value);
-  const hidden  = document.getElementById('classe-final');
-  const apercu  = document.getElementById('classe-apercu');
-  const apercuTxt = document.getElementById('classe-apercu-txt');
+const UNITES_DATA = {{ unites_json | safe }};
 
-  // Mettre à jour les styles des chips
-  document.querySelectorAll('.niveau-cb').forEach(cb => {
-    const chip = cb.nextElementSibling;
-    if (cb.checked) {
-      chip.classList.remove('border-slate-200','bg-white','text-slate-500');
-      chip.classList.add('border-indigo-600','bg-indigo-600','text-white');
-    } else {
-      chip.classList.add('border-slate-200','bg-white','text-slate-500');
-      chip.classList.remove('border-indigo-600','bg-indigo-600','text-white');
-    }
+function filterUnites() {
+  const ecoleId   = parseInt(document.getElementById('ecole-select').value);
+  const container = document.getElementById('unites-container');
+  const list      = document.getElementById('unites-list');
+
+  list.innerHTML = '';
+  document.getElementById('classe-final').value = '';
+  document.getElementById('classe-apercu').classList.add('hidden');
+
+  if (!ecoleId) { container.classList.add('hidden'); return; }
+
+  const filtered = UNITES_DATA.filter(u => u.ecole_id === ecoleId)
+    .sort((a, b) => a.niveau.localeCompare(b.niveau) || a.nom.localeCompare(b.nom));
+
+  if (!filtered.length) { container.classList.add('hidden'); return; }
+
+  filtered.forEach(u => {
+    const abr  = u.abreviation ? ` (${u.abreviation})` : '';
+    const item = document.createElement('label');
+    item.className = 'flex items-center gap-3 px-4 py-3 rounded-xl border border-slate-200 cursor-pointer hover:border-indigo-300 hover:bg-indigo-50 transition-all';
+    item.innerHTML = `
+      <input type="checkbox" name="unites" value="U${u.id}" class="unite-cb w-4 h-4 accent-indigo-600" onchange="updateClasse()"/>
+      <span class="flex-1 text-sm">
+        <span class="font-semibold text-slate-700">${u.niveau}</span>
+        <span class="text-slate-500"> — ${u.nom}${abr}</span>
+      </span>`;
+    list.appendChild(item);
   });
 
+  container.classList.remove('hidden');
+}
+
+function updateClasse() {
+  const checked   = [...document.querySelectorAll('.unite-cb:checked')];
+  const hidden    = document.getElementById('classe-final');
+  const apercu    = document.getElementById('classe-apercu');
+  const apercuTxt = document.getElementById('classe-apercu-txt');
+
   if (checked.length > 0) {
-    hidden.value = checked.join(',');
-    apercuTxt.textContent = checked.join(', ');
+    hidden.value    = checked.map(cb => cb.value).join(',');
+    apercuTxt.textContent = checked.map(cb => {
+      const span = cb.nextElementSibling;
+      return span ? span.textContent.trim() : cb.value;
+    }).join(' · ');
     apercu.classList.remove('hidden');
   } else {
     hidden.value = '';

@@ -12,7 +12,7 @@
     </div>
     <div>
       <p class="font-semibold text-indigo-900 text-sm">Réservation #{{ reservation.id }}</p>
-      <p class="text-indigo-700 text-sm mt-0.5">{{ reservation.salle.nom }} · Classe {{ reservation.classe }}</p>
+      <p class="text-indigo-700 text-sm mt-0.5">{{ reservation.salle.nom }} · Classe {{ format_classe(reservation.classe) }}</p>
       {% if reservation.matiere %}
       <p class="text-indigo-500 text-xs mt-0.5">Matière : {{ reservation.matiere }}</p>
       {% endif %}
