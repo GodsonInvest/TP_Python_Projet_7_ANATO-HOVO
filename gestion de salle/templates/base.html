@@ -123,6 +123,13 @@
         Réservations
       </a>
 
+      <a href="{{ url_for('planning') }}" class="nav-item {% if active=='planning' %}nav-item-active{% else %}nav-item-inactive{% endif %}">
+        <svg style="width:18px;height:18px" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+        </svg>
+        Planning
+      </a>
+
       {% if session.user_role == 'admin' %}
       <div class="pt-3 pb-1">
         <p class="text-slate-500 text-xs font-semibold uppercase tracking-widest px-3 mb-2">Administration</p>
