@@ -751,7 +751,7 @@ def reservations_export_csv():
     nom_fichier = f"reservations_{date.today().isoformat()}.csv"
     return Response(
         "﻿" + out.getvalue(),          # BOM UTF-8 pour Excel
-        mimetype="text/csv; charset=utf-8",
+        mimetype="text/csv",
         headers={"Content-Disposition": f"attachment; filename={nom_fichier}"},
     )
 
