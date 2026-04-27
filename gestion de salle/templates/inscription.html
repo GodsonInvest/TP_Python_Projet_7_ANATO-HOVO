@@ -143,14 +143,6 @@
               <option value="">-- Sélectionner un niveau --</option>
             </select>
           </div>
-          <!-- Aperçu de la classe dérivée -->
-          <div id="classe-preview" class="hidden">
-            <p class="text-xs font-medium text-slate-500 mb-1">Votre classe assignée</p>
-            <div class="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-indigo-200 bg-indigo-50">
-              <svg class="w-4 h-4 text-indigo-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span id="classe-label" class="text-sm font-semibold text-indigo-700"></span>
-            </div>
-          </div>
           {% endif %}
         </div>
 
@@ -181,11 +173,9 @@ function filterUnites() {
   const ecoleId        = parseInt(document.getElementById('ecole-select').value);
   const uniteSelect    = document.getElementById('unite-select');
   const uniteContainer = document.getElementById('unite-container');
-  const classePreview  = document.getElementById('classe-preview');
   if (!uniteSelect || !uniteContainer) return;
 
   uniteSelect.innerHTML = '<option value="">-- Sélectionner un niveau --</option>';
-  if (classePreview) classePreview.classList.add('hidden');
   document.getElementById('classe-hidden').value = '';
 
   if (!ecoleId) { uniteContainer.classList.add('hidden'); return; }
@@ -197,8 +187,6 @@ function filterUnites() {
     const opt = document.createElement('option');
     opt.value = u.id;
     opt.dataset.niveau = u.niveau;
-    opt.dataset.abreviation = u.abreviation || '';
-    opt.dataset.nom = u.nom;
     const abr = u.abreviation ? ` (${u.abreviation})` : '';
     opt.textContent = u.niveau + ' — ' + u.nom + abr;
     uniteSelect.appendChild(opt);
@@ -207,26 +195,8 @@ function filterUnites() {
 }
 
 function updateClasse() {
-  const uniteSelect   = document.getElementById('unite-select');
-  const classeHidden  = document.getElementById('classe-hidden');
-  const classePreview = document.getElementById('classe-preview');
-  const classeLabel   = document.getElementById('classe-label');
-  const opt = uniteSelect.options[uniteSelect.selectedIndex];
-
-  if (!opt || !opt.value) {
-    classePreview.classList.add('hidden');
-    classeHidden.value = '';
-    return;
-  }
-
-  const niveau = opt.dataset.niveau;
-  const abr    = opt.dataset.abreviation;
-  const nom    = opt.dataset.nom;
-  const classe = niveau + '-' + (abr || nom.replace(/\s+/g,'_').toUpperCase().slice(0,8));
-
-  classeHidden.value = classe;
-  classeLabel.textContent = classe;
-  classePreview.classList.remove('hidden');
+  const opt = document.getElementById('unite-select').options[document.getElementById('unite-select').selectedIndex];
+  document.getElementById('classe-hidden').value = (opt && opt.value) ? opt.dataset.niveau : '';
 }
 
 function toggleRoleFields() {
