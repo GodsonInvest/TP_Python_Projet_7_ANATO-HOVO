@@ -215,6 +215,13 @@ def inscription():
             flash("Rôle invalide.", "error")
             return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
 
+        # Dériver la classe depuis l'unité de formation si non fournie manuellement
+        if role == "etudiant" and not classe and unite_id_str.isdigit():
+            u_obj = next((u for u in unites if u.id == int(unite_id_str)), None)
+            if u_obj:
+                abr = u_obj.abreviation or u_obj.nom.replace(" ", "_").upper()[:8]
+                classe = f"{u_obj.niveau}-{abr}"
+
         if bd.charger_utilisateur_par_login(login_val):
             flash(f"Le login « {login_val} » est déjà utilisé.", "error")
             return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
