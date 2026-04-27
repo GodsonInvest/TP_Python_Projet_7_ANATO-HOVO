@@ -110,15 +110,25 @@ def _envoyer_otp(email: str, otp: str, nom: str = "") -> bool:
         return False
 
 
+def _niveau(classe: str) -> str:
+    """Extrait le niveau (L1/L2/L3/M1/M2) d'une chaîne de classe."""
+    import re
+    m = re.match(r'^(L[1-3]|M[1-2])', classe.strip().upper())
+    return m.group(1) if m else classe.strip().upper()
+
+
 def _notifier(reservation, utilisateurs, annulation=False):
     """Envoie les emails aux parties concernées. Échoue silencieusement si SMTP absent."""
     notif = _get_notif()
     if notif is None:
         return
     try:
+        # Supporte plusieurs classes séparées par virgule (ex: "L1,L2,L3")
+        niveaux_res = {_niveau(c) for c in reservation.classe.split(",") if c.strip()}
+
         etudiants = [
             u for u in utilisateurs.values()
-            if isinstance(u, Etudiant) and u.classe == reservation.classe
+            if isinstance(u, Etudiant) and _niveau(u.classe) in niveaux_res
         ]
         enseignant = next(
             (u for u in utilisateurs.values()
@@ -598,7 +608,9 @@ def reservation_ajouter():
 
     if request.method == "POST":
         salle_id  = request.form.get("salle_id", "")
-        classe    = request.form.get("classe", "").strip()
+        # Niveaux cochés (multi-valeur) ou champ texte de secours
+        niveaux   = request.form.getlist("niveaux")
+        classe    = ",".join(sorted(niveaux)) if niveaux else request.form.get("classe", "").strip()
         date_str  = request.form.get("date", "").strip()
         debut_str = request.form.get("heure_debut", "").strip()
         fin_str   = request.form.get("heure_fin", "").strip()
