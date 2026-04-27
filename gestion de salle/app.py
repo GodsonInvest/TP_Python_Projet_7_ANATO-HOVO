@@ -89,28 +89,22 @@ def _get_notif():
     port = int(bd.lire_config("smtp_port") or os.environ.get("SMTP_PORT", "587"))
     user = bd.lire_config("smtp_user") or os.environ.get("SMTP_USER", "")
     pwd  = bd.lire_config("smtp_pass") or os.environ.get("SMTP_PASS", "")
+    nom  = bd.lire_config("smtp_nom")  or os.environ.get("SMTP_NOM", "UniRéserv")
     if not (host and user and pwd):
         return None
-    return NotificationEmail(host, port, user, pwd)
+    return NotificationEmail(host, port, user, pwd, nom)
 
 
 def _generer_otp() -> str:
     return f"{random.randint(0, 999999):06d}"
 
 
-def _envoyer_otp(email: str, otp: str) -> bool:
+def _envoyer_otp(email: str, otp: str, nom: str = "") -> bool:
     notif = _get_notif()
     if notif is None:
         return False
     try:
-        notif.envoyer_email(
-            email,
-            "Code de vérification — Inscription",
-            f"Bonjour,\n\nVotre code de vérification est : {otp}\n\n"
-            f"Ce code expire dans 5 minutes.\n\n"
-            f"Si vous n'avez pas demandé ce code, ignorez cet email.\n\n"
-            f"Cordialement,\nSystème de réservation universitaire",
-        )
+        notif.envoyer_otp(email, otp, nom)
         return True
     except Exception:
         return False
@@ -135,7 +129,7 @@ def _notifier(reservation, utilisateurs, annulation=False):
         if enseignant:
             notif.envoyer_enseignant(reservation, enseignant, annulation)
         if etudiants:
-            notif.envoyer_etudiants(reservation, etudiants, annulation)
+            notif.envoyer_classe(reservation, etudiants, annulation)
     except Exception:
         pass
 
@@ -242,7 +236,7 @@ def inscription():
             },
         }
 
-        envoye = _envoyer_otp(email, otp)
+        envoye = _envoyer_otp(email, otp, nom)
         if envoye:
             flash(f"Un code de vérification a été envoyé à {email}.", "success")
         else:
@@ -283,7 +277,7 @@ def inscription_verifier():
             donnees["expire"]     = (datetime.now() + timedelta(minutes=5)).isoformat()
             donnees["tentatives"] = 0
             session["inscription_pending"] = donnees
-            envoye = _envoyer_otp(donnees["user"]["email"], otp)
+            envoye = _envoyer_otp(donnees["user"]["email"], otp, donnees["user"].get("nom",""))
             if envoye:
                 flash("Un nouveau code a été envoyé.", "success")
             else:
@@ -1095,11 +1089,7 @@ def parametres_tester():
         return redirect(url_for("parametres"))
 
     try:
-        notif.envoyer_email(
-            dest,
-            "Test SMTP — Réservation de salles",
-            "Bonjour,\n\nCeci est un email de test envoyé depuis le système de réservation de salles.\n\nConfiguration SMTP opérationnelle.\n\nCordialement,\nSystème de réservation universitaire",
-        )
+        notif.envoyer_test(dest)
         flash(f"Email de test envoyé avec succès à {dest}.", "success")
     except Exception as e:
         flash(f"Échec de l'envoi : {e}", "error")
