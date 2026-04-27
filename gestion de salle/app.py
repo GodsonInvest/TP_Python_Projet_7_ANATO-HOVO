@@ -1070,8 +1070,34 @@ def parametres():
         flash("Configuration SMTP sauvegardée.", "success")
         return redirect(url_for("parametres"))
 
-    cfg = bd.charger_config()
-    return render_template("parametres.html", active="parametres", cfg=cfg)
+    cfg   = bd.charger_config()
+    admin = bd.charger_utilisateur_par_id(session["user_id"])
+    return render_template("parametres.html", active="parametres", cfg=cfg,
+                           admin_email=admin.email if admin else "")
+
+
+@app.route("/parametres/email", methods=["POST"])
+@login_required
+@admin_required
+def parametres_email():
+    bd          = get_bd()
+    u           = bd.charger_utilisateur_par_id(session["user_id"])
+    nouvel_email = request.form.get("nouvel_email", "").strip()
+    mdp_actuel  = request.form.get("mot_de_passe_actuel", "")
+
+    if not nouvel_email or not mdp_actuel:
+        flash("Email et mot de passe requis.", "error")
+        return redirect(url_for("parametres"))
+    if not Authentification.verifier_hash(mdp_actuel, u.mot_de_passe):
+        flash("Mot de passe incorrect.", "error")
+        return redirect(url_for("parametres"))
+    try:
+        u.email = nouvel_email
+        bd.sauvegarder_utilisateur(u)
+        flash(f"Email mis à jour : {nouvel_email}", "success")
+    except Exception as e:
+        flash(str(e), "error")
+    return redirect(url_for("parametres"))
 
 
 @app.route("/parametres/tester", methods=["POST"])
