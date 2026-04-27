@@ -7,7 +7,8 @@ from datetime import date, time as dtime, datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
+import csv, io
 
 from models.etablissement import Ecole, UniteFormation
 from models.utilisateur import Administrateur, Etudiant, Enseignant, Responsable
@@ -21,6 +22,18 @@ from persistance.db_sqlite import BaseDonneesSQLite
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "reserv_salle_secret_2026")
 
+# Palette de couleurs pour les salles dans le planning (bg, text, border)
+COULEURS_SALLES = [
+    {"bg": "#e0e7ff", "text": "#3730a3", "border": "#c7d2fe"},
+    {"bg": "#d1fae5", "text": "#065f46", "border": "#a7f3d0"},
+    {"bg": "#fef3c7", "text": "#92400e", "border": "#fde68a"},
+    {"bg": "#ffe4e6", "text": "#9f1239", "border": "#fecdd3"},
+    {"bg": "#ede9fe", "text": "#5b21b6", "border": "#ddd6fe"},
+    {"bg": "#cffafe", "text": "#164e63", "border": "#a5f3fc"},
+    {"bg": "#fce7f3", "text": "#831843", "border": "#fbcfe8"},
+    {"bg": "#dcfce7", "text": "#14532d", "border": "#bbf7d0"},
+]
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────────
 
@@ -29,8 +42,15 @@ def get_bd():
 
 
 def get_data():
-    bd  = get_bd()
+    bd   = get_bd()
     tout = bd.charger_tout()
+    # Marquer automatiquement les réservations dont la fin est passée
+    maintenant = datetime.now()
+    for r in tout["reservations"]:
+        if r.statut in (StatutReservation.CONFIRMEE, StatutReservation.EN_ATTENTE):
+            if datetime.combine(r.date, r.heure_fin) < maintenant:
+                r._Reservation__statut = StatutReservation.TERMINEE
+                bd.sauvegarder_reservation(r)
     return (
         bd,
         {u.id: u for u in tout["utilisateurs"]},
@@ -313,17 +333,79 @@ def logout():
 @login_required
 def dashboard():
     bd, utilisateurs, salles, reservations = get_data()
-    aujourd_hui   = date.today()
-    confirmees    = [r for r in reservations if r.statut == StatutReservation.CONFIRMEE]
-    res_ce_jour   = [r for r in confirmees if r.date == aujourd_hui]
-    recentes      = sorted(reservations, key=lambda r: r.date_creation, reverse=True)[:5]
+    aujourd_hui = date.today()
+    role        = session.get("user_role")
+    u_courant   = utilisateurs.get(session["user_id"])
+
+    confirmees  = [r for r in reservations if r.statut == StatutReservation.CONFIRMEE]
+    en_attente  = [r for r in reservations if r.statut == StatutReservation.EN_ATTENTE]
+
+    if role == "admin":
+        stats = {
+            "nb_salles":       len(salles),
+            "nb_utilisateurs": len(utilisateurs),
+            "nb_confirmees":   len(confirmees),
+            "nb_en_attente":   len(en_attente),
+        }
+        recentes  = sorted(reservations, key=lambda r: r.date_creation, reverse=True)[:5]
+        prochaines = []
+
+    elif role == "responsable":
+        classe = getattr(u_courant, "classe", "") or ""
+        mes_res      = [r for r in reservations if r.responsable.id == session["user_id"]]
+        cls_conf     = [r for r in confirmees if r.classe == classe]
+        cls_ce_jour  = [r for r in cls_conf if r.date == aujourd_hui]
+        prochaines   = sorted(
+            [r for r in cls_conf if r.date >= aujourd_hui],
+            key=lambda r: (r.date, r.heure_debut))[:8]
+        stats = {
+            "ma_classe":            classe or "—",
+            "nb_mes_reservations":  len(mes_res),
+            "nb_confirmees_classe": len(cls_conf),
+            "nb_ce_jour_classe":    len(cls_ce_jour),
+        }
+        recentes = []
+
+    elif role == "enseignant":
+        matiere      = getattr(u_courant, "matiere", "") or ""
+        ce_jour      = [r for r in confirmees if r.date == aujourd_hui]
+        prochaines   = sorted(
+            [r for r in confirmees if r.date >= aujourd_hui],
+            key=lambda r: (r.date, r.heure_debut))[:8]
+        stats = {
+            "ma_matiere":    matiere or "—",
+            "nb_salles":     len(salles),
+            "nb_confirmees": len(confirmees),
+            "nb_ce_jour":    len(ce_jour),
+        }
+        recentes = []
+
+    else:  # etudiant
+        classe = getattr(u_courant, "classe", "") or ""
+        cls_conf  = [r for r in confirmees if r.classe == classe]
+        ce_jour   = [r for r in cls_conf if r.date == aujourd_hui]
+        lun = aujourd_hui - timedelta(days=aujourd_hui.weekday())
+        dim = lun + timedelta(days=6)
+        semaine = [r for r in cls_conf if lun <= r.date <= dim]
+        prochaines = sorted(
+            [r for r in cls_conf if r.date >= aujourd_hui],
+            key=lambda r: (r.date, r.heure_debut))[:8]
+        stats = {
+            "ma_classe":            classe or "—",
+            "nb_confirmees_classe": len(cls_conf),
+            "nb_semaine":           len(semaine),
+            "nb_ce_jour":           len(ce_jour),
+        }
+        recentes = []
+
     return render_template(
         "dashboard.html", active="dashboard",
-        nb_salles=len(salles),
-        nb_utilisateurs=len(utilisateurs),
-        nb_confirmees=len(confirmees),
-        nb_ce_jour=len(res_ce_jour),
+        role=role,
+        stats=stats,
         reservations_recentes=recentes,
+        prochaines=prochaines,
+        aujourd_hui=aujourd_hui,
+        StatutReservation=StatutReservation,
     )
 
 
@@ -333,8 +415,44 @@ def dashboard():
 @login_required
 def salles():
     _, _, salles_dict, _ = get_data()
+    q = request.args.get("q", "").strip().lower()
+    toutes = list(salles_dict.values())
+    resultats = [s for s in toutes if q in s.nom.lower()] if q else toutes
     return render_template("salles.html", active="salles",
-                           salles=list(salles_dict.values()))
+                           salles=resultats, q=q, nb_total=len(toutes))
+
+
+@app.route("/salles/<int:salle_id>/detail")
+@login_required
+def salles_detail(salle_id):
+    bd, utilisateurs, salles_dict, toutes = get_data()
+    salle = salles_dict.get(salle_id)
+    if not salle:
+        flash("Salle introuvable.", "error")
+        return redirect(url_for("salles"))
+
+    res_salle = sorted(
+        [r for r in toutes if r.salle.id == salle_id],
+        key=lambda r: (r.date, r.heure_debut),
+    )
+    aujourd_hui = date.today()
+    prochaines  = [r for r in res_salle if r.date >= aujourd_hui
+                   and r.statut in (StatutReservation.CONFIRMEE, StatutReservation.EN_ATTENTE)]
+    passees     = [r for r in res_salle if r.date < aujourd_hui
+                   or r.statut == StatutReservation.TERMINEE]
+
+    il_y_a_30j  = aujourd_hui - timedelta(days=30)
+    res_30j     = [r for r in res_salle if il_y_a_30j <= r.date <= aujourd_hui]
+    jours_occ   = len(set(r.date for r in res_30j))
+    taux        = round(jours_occ / 30 * 100)
+
+    return render_template("salle_detail.html", active="salles",
+                           salle=salle,
+                           prochaines=prochaines[:10],
+                           passees=passees[-5:],
+                           taux_occupation=taux,
+                           nb_total=len(res_salle),
+                           StatutReservation=StatutReservation)
 
 
 @app.route("/salles/ajouter", methods=["GET", "POST"])
@@ -406,13 +524,22 @@ def salles_supprimer(salle_id):
 @app.route("/reservations")
 @login_required
 def reservations():
-    _, _, salles_dict, toutes = get_data()
+    _, utilisateurs, salles_dict, toutes = get_data()
     filtre_date    = request.args.get("date", "")
     filtre_salle   = request.args.get("salle_id", "")
     filtre_classe  = request.args.get("classe", "").strip()
     filtre_places  = request.args.get("places_min", "").strip()
 
     resultats = list(toutes)
+
+    # Les étudiants ne voient que les réservations de leur classe (passées et futures)
+    classe_etudiant = ""
+    if session.get("user_role") == "etudiant":
+        u_courant = utilisateurs.get(session["user_id"])
+        if u_courant and getattr(u_courant, "classe", ""):
+            classe_etudiant = u_courant.classe
+            resultats = [r for r in resultats if r.classe == classe_etudiant]
+
     if filtre_date:
         try:
             d = date.fromisoformat(filtre_date)
@@ -439,6 +566,7 @@ def reservations():
         filtre_places=filtre_places,
         peut_gerer=peut_gerer_reservations(),
         StatutReservation=StatutReservation,
+        classe_etudiant=classe_etudiant,
     )
 
 
@@ -450,6 +578,23 @@ def reservation_ajouter():
         return redirect(url_for("reservations"))
 
     bd, utilisateurs, salles_dict, reservations_existantes = get_data()
+
+    # Classe pré-remplie pour le responsable (depuis son profil)
+    u_courant   = utilisateurs.get(session["user_id"])
+    pre_classe  = getattr(u_courant, "classe", "") or ""
+
+    # Filières organisées par école pour le sélecteur tronc commun
+    ecoles = bd.charger_toutes_ecoles()
+    unites = bd.charger_toutes_unites()
+    groupes_filieres = {}
+    for u in unites:
+        groupes_filieres.setdefault(u.ecole_id, []).append(u)
+    ecoles_filieres = [
+        {"ecole": e, "unites": sorted(groupes_filieres.get(e.id, []),
+                                      key=lambda x: (x.nom, x.niveau))}
+        for e in ecoles if groupes_filieres.get(e.id)
+    ]
+    unites_json = json.dumps([u.to_dict() for u in unites])
 
     if request.method == "POST":
         salle_id  = request.form.get("salle_id", "")
@@ -488,6 +633,10 @@ def reservation_ajouter():
         "reservation_form.html", active="reservations",
         salles=list(salles_dict.values()),
         today=date.today().isoformat(),
+        pre_classe=pre_classe,
+        ecoles_filieres=ecoles_filieres,
+        unites_json=unites_json,
+        user_role=session.get("user_role"),
     )
 
 
@@ -556,6 +705,131 @@ def reservation_annuler(res_id):
     return redirect(url_for("reservations"))
 
 
+@app.route("/reservations/<int:res_id>/supprimer", methods=["POST"])
+@login_required
+@admin_required
+def reservation_supprimer(res_id):
+    bd, _, _, toutes = get_data()
+    cible = next((r for r in toutes if r.id == res_id), None)
+    if cible:
+        bd.supprimer_reservation(res_id)
+        flash("Réservation supprimée définitivement.", "success")
+    else:
+        flash("Réservation introuvable.", "error")
+    return redirect(url_for("reservations"))
+
+
+@app.route("/reservations/export")
+@login_required
+def reservations_export_csv():
+    _, utilisateurs, _, toutes = get_data()
+    role      = session.get("user_role")
+    u_courant = utilisateurs.get(session["user_id"])
+
+    resultats = list(toutes)
+    if role == "etudiant" and u_courant:
+        classe    = getattr(u_courant, "classe", "")
+        resultats = [r for r in resultats if r.classe == classe]
+
+    resultats.sort(key=lambda r: (r.date, r.heure_debut))
+
+    out = io.StringIO()
+    w   = csv.writer(out, delimiter=";")
+    w.writerow(["ID", "Salle", "Classe", "Matière", "Date",
+                "Heure début", "Heure fin", "Durée (min)", "Statut", "Responsable"])
+    for r in resultats:
+        w.writerow([
+            r.id, r.salle.nom, r.classe, r.matiere or "",
+            r.date.strftime("%d/%m/%Y"),
+            r.heure_debut.strftime("%H:%M"),
+            r.heure_fin.strftime("%H:%M"),
+            r.duree_minutes(),
+            r.statut.value,
+            r.responsable.nom,
+        ])
+    out.seek(0)
+    nom_fichier = f"reservations_{date.today().isoformat()}.csv"
+    return Response(
+        "﻿" + out.getvalue(),          # BOM UTF-8 pour Excel
+        mimetype="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename={nom_fichier}"},
+    )
+
+
+# ── Planning hebdomadaire ─────────────────────────────────────────────────────────
+
+@app.route("/planning")
+@login_required
+def planning():
+    bd, utilisateurs, salles_dict, toutes = get_data()
+
+    debut_str = request.args.get("debut", "")
+    try:
+        debut_semaine = date.fromisoformat(debut_str)
+    except ValueError:
+        debut_semaine = date.today()
+    debut_semaine -= timedelta(days=debut_semaine.weekday())  # → lundi
+    fin_semaine = debut_semaine + timedelta(days=6)
+
+    role      = session.get("user_role")
+    u_courant = utilisateurs.get(session["user_id"])
+
+    if role == "etudiant" and u_courant:
+        classe    = getattr(u_courant, "classe", "")
+        pool      = [r for r in toutes if r.classe == classe]
+    else:
+        pool = list(toutes)
+
+    pool = [r for r in pool
+            if debut_semaine <= r.date <= fin_semaine
+            and r.statut in (StatutReservation.CONFIRMEE, StatutReservation.EN_ATTENTE)]
+
+    HEURE_DEBUT   = 7
+    HEURE_FIN     = 21
+    HAUTEUR_HEURE = 64   # px
+    noms_jours    = ["Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam.", "Dim."]
+
+    jours = []
+    for i in range(7):
+        d     = debut_semaine + timedelta(days=i)
+        blocs = []
+        for r in sorted(pool, key=lambda r: r.heure_debut):
+            if r.date != d:
+                continue
+            dh = r.heure_debut.hour + r.heure_debut.minute / 60
+            fh = r.heure_fin.hour   + r.heure_fin.minute   / 60
+            top    = max(0, (dh - HEURE_DEBUT) * HAUTEUR_HEURE)
+            height = max(28, (fh - dh) * HAUTEUR_HEURE)
+            blocs.append({
+                "r":      r,
+                "top":    round(top),
+                "height": round(height),
+                "c":      COULEURS_SALLES[r.salle.id % len(COULEURS_SALLES)],
+            })
+        jours.append({
+            "date":          d,
+            "label":         noms_jours[i],
+            "est_aujourd_hui": d == date.today(),
+            "blocs":         blocs,
+        })
+
+    return render_template(
+        "planning.html", active="planning",
+        jours=jours,
+        debut_semaine=debut_semaine,
+        fin_semaine=fin_semaine,
+        prev_semaine=(debut_semaine - timedelta(weeks=1)).isoformat(),
+        next_semaine=(debut_semaine + timedelta(weeks=1)).isoformat(),
+        grille_heures=list(range(HEURE_DEBUT, HEURE_FIN + 1)),
+        hauteur_grille=(HEURE_FIN - HEURE_DEBUT) * HAUTEUR_HEURE,
+        HAUTEUR_HEURE=HAUTEUR_HEURE,
+        salles=list(salles_dict.values()),
+        COULEURS_SALLES=COULEURS_SALLES,
+        peut_gerer=peut_gerer_reservations(),
+        StatutReservation=StatutReservation,
+    )
+
+
 # ── Utilisateurs (admin) ──────────────────────────────────────────────────────────
 
 @app.route("/utilisateurs")
@@ -563,8 +837,33 @@ def reservation_annuler(res_id):
 @admin_required
 def utilisateurs():
     _, utilisateurs_dict, _, _ = get_data()
+    tous = list(utilisateurs_dict.values())
+
+    filtre_role   = request.args.get("role", "").strip()
+    filtre_search = request.args.get("q", "").strip().lower()
+
+    resultats = tous
+    if filtre_role:
+        resultats = [u for u in resultats if u.role == filtre_role]
+    if filtre_search:
+        resultats = [u for u in resultats
+                     if filtre_search in u.nom.lower()
+                     or filtre_search in u.email.lower()
+                     or filtre_search in u.login.lower()]
+
+    compteurs = {
+        "tous":        len(tous),
+        "etudiant":    sum(1 for u in tous if u.role == "etudiant"),
+        "enseignant":  sum(1 for u in tous if u.role == "enseignant"),
+        "responsable": sum(1 for u in tous if u.role == "responsable"),
+        "admin":       sum(1 for u in tous if u.role == "admin"),
+    }
+
     return render_template("utilisateurs.html", active="utilisateurs",
-                           utilisateurs=list(utilisateurs_dict.values()))
+                           utilisateurs=resultats,
+                           filtre_role=filtre_role,
+                           filtre_search=filtre_search,
+                           compteurs=compteurs)
 
 
 @app.route("/utilisateurs/inscrire", methods=["GET", "POST"])
@@ -962,6 +1261,16 @@ def filieres_supprimer(ecole_id):
     else:
         flash("Filière introuvable.", "error")
     return redirect(url_for("ecoles"))
+
+
+@app.errorhandler(404)
+def page_non_trouvee(e):
+    return render_template("404.html"), 404
+
+
+@app.errorhandler(500)
+def erreur_serveur(e):
+    return render_template("404.html", erreur_500=True), 500
 
 
 if __name__ == "__main__":

@@ -3,7 +3,23 @@
 {% block heading %}Nouvelle réservation{% endblock %}
 
 {% block content %}
-<div class="max-w-xl">
+<div class="max-w-xl space-y-4">
+
+  <!-- Carte contexte responsable -->
+  {% if user_role == 'responsable' and pre_classe %}
+  <div class="bg-indigo-50 border border-indigo-100 rounded-xl px-5 py-4 flex items-center gap-3">
+    <div class="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+      <svg style="width:18px;height:18px;color:#4f46e5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+      </svg>
+    </div>
+    <div>
+      <p class="text-sm font-semibold text-indigo-800">Responsable de promotion</p>
+      <p class="text-xs text-indigo-500">Votre classe <strong>{{ pre_classe }}</strong> est pré-sélectionnée. Vous pouvez choisir une autre filière pour un cours de tronc commun.</p>
+    </div>
+  </div>
+  {% endif %}
+
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
     <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
       <p class="text-sm text-slate-500">Remplissez les détails de la réservation. Les conflits horaires sont détectés automatiquement.</p>
@@ -11,6 +27,7 @@
     <div class="px-6 py-6">
       <form method="POST" class="space-y-5">
 
+        <!-- Salle -->
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">Salle <span class="text-red-500">*</span></label>
           <select name="salle_id" required
@@ -22,25 +39,91 @@
           </select>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Classe <span class="text-red-500">*</span></label>
-            <input type="text" name="classe" required placeholder="ex : L3-INFO"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+        <!-- Classe concernée -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-2">
+            Classe concernée <span class="text-red-500">*</span>
+          </label>
+
+          {% if user_role == 'responsable' %}
+          <!-- Sélecteur de mode pour le responsable -->
+          <div class="grid grid-cols-2 gap-2 mb-3" id="mode-selector">
+            <button type="button" id="btn-ma-classe"
+              onclick="setMode('promotion')"
+              class="mode-btn flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 border-indigo-600 bg-indigo-50 text-sm font-semibold text-indigo-700 transition-all">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+              </svg>
+              Ma promotion
+            </button>
+            <button type="button" id="btn-tronc"
+              onclick="setMode('tronc')"
+              class="mode-btn flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border-2 border-slate-200 bg-white text-sm font-semibold text-slate-500 transition-all">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              Tronc commun
+            </button>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Matière</label>
-            <input type="text" name="matiere" placeholder="ex : Algorithmique"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          {% endif %}
+
+          <!-- Sélecteur filière (visible en mode tronc commun) -->
+          {% if ecoles_filieres %}
+          <div id="filiere-picker" class="{% if user_role == 'responsable' %}hidden {% endif %}mb-3 space-y-2">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">École / Faculté</label>
+                <select id="select-ecole" onchange="filterFilieres()"
+                  class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all">
+                  <option value="">— Choisir —</option>
+                  {% for ef in ecoles_filieres %}
+                  <option value="{{ ef.ecole.id }}">
+                    {% if ef.ecole.abreviation %}{{ ef.ecole.abreviation }} — {% endif %}{{ ef.ecole.nom }}
+                  </option>
+                  {% endfor %}
+                </select>
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-500 mb-1">Filière / Niveau</label>
+                <select id="select-filiere" onchange="applyFiliere()"
+                  class="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all">
+                  <option value="">— Choisir une école d'abord —</option>
+                </select>
+              </div>
+            </div>
           </div>
+          {% endif %}
+
+          <!-- Champ classe (toujours visible, éditable) -->
+          <input type="text" name="classe" id="input-classe" required
+            value="{{ pre_classe }}"
+            placeholder="ex : L3-INFO ou L3-IG"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          <p class="mt-1 text-xs text-slate-400">
+            {% if user_role == 'responsable' and pre_classe %}
+              Pré-remplie avec votre classe. Modifiable manuellement si besoin.
+            {% else %}
+              Identifiant de la classe concernée par cette réservation.
+            {% endif %}
+          </p>
         </div>
 
+        <!-- Matière -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Matière</label>
+          <input type="text" name="matiere" placeholder="ex : Algorithmique, Mathématiques..."
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+        </div>
+
+        <!-- Date -->
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">Date <span class="text-red-500">*</span></label>
           <input type="date" name="date" required min="{{ today }}"
             class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
         </div>
 
+        <!-- Horaires -->
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Heure de début <span class="text-red-500">*</span></label>
@@ -56,7 +139,9 @@
 
         <div class="flex items-center gap-3 pt-2 border-t border-slate-100">
           <button type="submit" class="btn-primary">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
             Créer la réservation
           </button>
           <a href="{{ url_for('reservations') }}" class="btn-secondary">Annuler</a>
@@ -65,4 +150,73 @@
     </div>
   </div>
 </div>
+
+<script>
+const PRE_CLASSE  = {{ pre_classe | tojson }};
+const UNITES      = {{ unites_json | safe }};
+
+/* ── Mode promotion / tronc commun ── */
+function setMode(mode) {
+  const picker   = document.getElementById('filiere-picker');
+  const btnProm  = document.getElementById('btn-ma-classe');
+  const btnTronc = document.getElementById('btn-tronc');
+  const input    = document.getElementById('input-classe');
+
+  if (mode === 'promotion') {
+    btnProm.classList.replace('border-slate-200', 'border-indigo-600');
+    btnProm.classList.replace('bg-white', 'bg-indigo-50');
+    btnProm.classList.replace('text-slate-500', 'text-indigo-700');
+    btnTronc.classList.replace('border-indigo-600', 'border-slate-200');
+    btnTronc.classList.replace('bg-indigo-50', 'bg-white');
+    btnTronc.classList.replace('text-indigo-700', 'text-slate-500');
+    if (picker) picker.classList.add('hidden');
+    input.value = PRE_CLASSE;
+  } else {
+    btnTronc.classList.replace('border-slate-200', 'border-indigo-600');
+    btnTronc.classList.replace('bg-white', 'bg-indigo-50');
+    btnTronc.classList.replace('text-slate-500', 'text-indigo-700');
+    btnProm.classList.replace('border-indigo-600', 'border-slate-200');
+    btnProm.classList.replace('bg-indigo-50', 'bg-white');
+    btnProm.classList.replace('text-indigo-700', 'text-slate-500');
+    if (picker) picker.classList.remove('hidden');
+    input.value = '';
+    input.focus();
+  }
+}
+
+/* ── Filtrage des filières par école ── */
+function filterFilieres() {
+  const ecoleId  = parseInt(document.getElementById('select-ecole').value);
+  const sel      = document.getElementById('select-filiere');
+  if (!sel) return;
+  sel.innerHTML  = '<option value="">— Sélectionner —</option>';
+
+  if (!ecoleId) return;
+
+  // Grouper par nom de filière
+  const groupes = {};
+  UNITES.filter(u => u.ecole_id === ecoleId).forEach(u => {
+    if (!groupes[u.nom]) groupes[u.nom] = [];
+    groupes[u.nom].push(u);
+  });
+
+  Object.keys(groupes).sort().forEach(nom => {
+    const niveaux = groupes[nom].sort((a,b) => a.niveau.localeCompare(b.niveau));
+    niveaux.forEach(u => {
+      const opt = document.createElement('option');
+      const abr = u.abreviation ? ` (${u.abreviation})` : '';
+      opt.value = u.niveau + (u.abreviation ? '-' + u.abreviation : '');
+      opt.textContent = u.niveau + ' — ' + u.nom + abr;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+/* ── Appliquer la filière choisie au champ classe ── */
+function applyFiliere() {
+  const sel   = document.getElementById('select-filiere');
+  const input = document.getElementById('input-classe');
+  if (sel && sel.value) input.value = sel.value;
+}
+</script>
 {% endblock %}

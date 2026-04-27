@@ -1,0 +1,162 @@
+{% extends "base.html" %}
+{% block title %}{{ salle.nom }}{% endblock %}
+{% block heading %}{{ salle.nom }}{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- ── Fiche salle ── -->
+  <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-6 py-5 flex items-center gap-5">
+      <div class="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center shrink-0">
+        <svg style="width:26px;height:26px;color:#4f46e5" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/>
+        </svg>
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-3 flex-wrap">
+          <h2 class="text-xl font-bold text-slate-800">{{ salle.nom }}</h2>
+          {% if salle.disponible %}
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Disponible
+          </span>
+          {% else %}
+          <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700">
+            <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Indisponible
+          </span>
+          {% endif %}
+        </div>
+        {% if salle.equipements %}
+        <div class="flex flex-wrap gap-1.5 mt-2">
+          {% for eq in salle.equipements %}
+          <span class="px-2 py-0.5 rounded-md bg-slate-100 text-slate-600 text-xs font-medium">{{ eq }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% if session.user_role == 'admin' %}
+      <a href="{{ url_for('salles_modifier', salle_id=salle.id) }}" class="btn-secondary" style="font-size:0.8rem;padding:0.4rem 0.85rem">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        Modifier
+      </a>
+      {% endif %}
+    </div>
+
+    <!-- Métriques -->
+    <div class="border-t border-slate-100 grid grid-cols-3 divide-x divide-slate-100">
+      <div class="px-6 py-4 text-center">
+        <p class="text-2xl font-bold text-indigo-600">{{ salle.capacite }}</p>
+        <p class="text-xs text-slate-500 mt-0.5">places</p>
+      </div>
+      <div class="px-6 py-4 text-center">
+        <p class="text-2xl font-bold text-slate-800">{{ nb_total }}</p>
+        <p class="text-xs text-slate-500 mt-0.5">réservations au total</p>
+      </div>
+      <div class="px-6 py-4 text-center">
+        <div class="flex items-center justify-center gap-2">
+          <p class="text-2xl font-bold {% if taux_occupation > 60 %}text-amber-600{% elif taux_occupation > 30 %}text-emerald-600{% else %}text-slate-400{% endif %}">
+            {{ taux_occupation }}%
+          </p>
+        </div>
+        <p class="text-xs text-slate-500 mt-0.5">taux d'occupation (30j)</p>
+        <!-- Barre de progression -->
+        <div class="w-full bg-slate-100 rounded-full h-1.5 mt-2 overflow-hidden">
+          <div class="h-1.5 rounded-full transition-all
+            {% if taux_occupation > 60 %}bg-amber-500{% elif taux_occupation > 30 %}bg-emerald-500{% else %}bg-slate-300{% endif %}"
+               style="width: {{ taux_occupation }}%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Prochaines réservations ── -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+      <div>
+        <h3 class="font-semibold text-slate-800">Réservations à venir</h3>
+        <p class="text-xs text-slate-400 mt-0.5">{{ prochaines|length }} créneau(x) planifié(s)</p>
+      </div>
+      <a href="{{ url_for('planning') }}" class="text-indigo-600 hover:text-indigo-800 text-xs font-medium transition">
+        Voir le planning →
+      </a>
+    </div>
+
+    {% if prochaines %}
+    <div class="divide-y divide-slate-50">
+      {% for r in prochaines %}
+      <div class="px-6 py-3.5 flex items-center gap-4 hover:bg-slate-50 transition-colors">
+        <!-- Date badge -->
+        <div class="w-12 shrink-0 text-center">
+          <p class="text-xs font-bold text-indigo-600 uppercase">{{ r.date.strftime('%b') }}</p>
+          <p class="text-xl font-bold text-slate-800 leading-none">{{ r.date.strftime('%d') }}</p>
+          <p class="text-xs text-slate-400">{{ r.date.strftime('%Y') }}</p>
+        </div>
+        <div class="w-px h-10 bg-slate-100 shrink-0"></div>
+        <!-- Info -->
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-semibold text-slate-700 text-sm">{{ r.classe }}</span>
+            {% if r.matiere %}
+            <span class="text-xs text-slate-400 italic">{{ r.matiere }}</span>
+            {% endif %}
+          </div>
+          <p class="text-xs text-slate-400 mt-0.5 font-mono">
+            {{ r.heure_debut.strftime('%H:%M') }} – {{ r.heure_fin.strftime('%H:%M') }}
+            <span class="not-italic ml-1">({{ r.duree_minutes() }} min)</span>
+          </p>
+        </div>
+        <!-- Statut -->
+        {% if r.statut == StatutReservation.CONFIRMEE %}
+        <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Confirmée
+        </span>
+        {% else %}
+        <span class="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
+          <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>En attente
+        </span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="py-10 text-center">
+      <p class="text-slate-400 text-sm font-medium">Aucune réservation à venir pour cette salle</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ── Réservations passées (récentes) ── -->
+  {% if passees %}
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100">
+      <h3 class="font-semibold text-slate-700 text-sm">Historique récent</h3>
+    </div>
+    <div class="divide-y divide-slate-50">
+      {% for r in passees|reverse %}
+      <div class="px-6 py-3 flex items-center gap-4 opacity-60">
+        <div class="w-12 shrink-0 text-center">
+          <p class="text-xs font-bold text-slate-400 uppercase">{{ r.date.strftime('%b') }}</p>
+          <p class="text-lg font-bold text-slate-600 leading-none">{{ r.date.strftime('%d') }}</p>
+        </div>
+        <div class="w-px h-8 bg-slate-100 shrink-0"></div>
+        <div class="flex-1 min-w-0">
+          <span class="font-medium text-slate-600 text-sm">{{ r.classe }}</span>
+          <span class="text-xs text-slate-400 ml-2 font-mono">{{ r.heure_debut.strftime('%H:%M') }}–{{ r.heure_fin.strftime('%H:%M') }}</span>
+        </div>
+        <span class="text-xs text-slate-300">Terminée</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- ── Navigation ── -->
+  <div class="flex items-center gap-3">
+    <a href="{{ url_for('salles') }}" class="btn-secondary">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+      Retour aux salles
+    </a>
+  </div>
+
+</div>
+{% endblock %}

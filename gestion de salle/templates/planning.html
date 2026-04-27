@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+{% block title %}Planning hebdomadaire{% endblock %}
+{% block heading %}Planning hebdomadaire{% endblock %}
+
+{% block content %}
+<div class="space-y-4">
+
+  <!-- ── Barre de navigation semaine ── -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-3 flex items-center justify-between gap-4">
+
+    <div class="flex items-center gap-3">
+      <a href="{{ url_for('planning', debut=prev_semaine) }}"
+         class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-medium transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        Semaine préc.
+      </a>
+      <a href="{{ url_for('planning') }}"
+         class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition">
+        Aujourd'hui
+      </a>
+      <a href="{{ url_for('planning', debut=next_semaine) }}"
+         class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-medium transition">
+        Semaine suiv.
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <span class="text-sm font-semibold text-slate-700">
+        {{ debut_semaine.strftime('%d %b') }} – {{ fin_semaine.strftime('%d %b %Y') }}
+      </span>
+      {% if peut_gerer %}
+      <a href="{{ url_for('reservation_ajouter') }}" class="btn-primary" style="font-size:0.8rem;padding:0.4rem 0.85rem">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Nouvelle réservation
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── Légende salles ── -->
+  {% if salles %}
+  <div class="flex flex-wrap items-center gap-2 px-1">
+    <span class="text-xs text-slate-400 font-medium">Salles :</span>
+    {% for s in salles %}
+    {% set c = COULEURS_SALLES[s.id % COULEURS_SALLES|length] %}
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border"
+          style="background:{{ c.bg }}; color:{{ c.text }}; border-color:{{ c.border }}">
+      <span class="w-1.5 h-1.5 rounded-full" style="background:{{ c.text }}"></span>
+      {{ s.nom }}
+    </span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ── Grille planning ── -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+
+    <!-- En-têtes des jours -->
+    <div class="flex border-b border-slate-200 bg-slate-50">
+      <div class="w-14 shrink-0 border-r border-slate-200"></div>
+      {% for j in jours %}
+      <div class="flex-1 px-2 py-3 text-center border-r border-slate-100 last:border-0
+        {% if j.est_aujourd_hui %}bg-indigo-50{% endif %}">
+        <p class="text-xs font-semibold {% if j.est_aujourd_hui %}text-indigo-700{% else %}text-slate-500{% endif %}">
+          {{ j.label }}
+        </p>
+        <p class="text-base font-bold {% if j.est_aujourd_hui %}text-indigo-700{% else %}text-slate-800{% endif %} mt-0.5">
+          {{ j.date.strftime('%d') }}
+        </p>
+        {% if j.est_aujourd_hui %}
+        <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block mt-0.5"></span>
+        {% endif %}
+        <p class="text-xs font-medium mt-1 {% if j.blocs %}text-indigo-600{% else %}text-slate-300{% endif %}">
+          {% if j.blocs %}{{ j.blocs|length }} cours{% else %}—{% endif %}
+        </p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Corps de la grille -->
+    <div class="flex overflow-x-auto" style="max-height: 680px; overflow-y: auto;">
+
+      <!-- Colonne heures -->
+      <div class="w-14 shrink-0 border-r border-slate-200 relative"
+           style="height: {{ hauteur_grille }}px">
+        {% for h in grille_heures %}
+        <div class="absolute w-full flex items-center justify-end pr-2"
+             style="top: {{ (h - grille_heures[0]) * HAUTEUR_HEURE }}px; height: {{ HAUTEUR_HEURE }}px">
+          <span class="text-xs text-slate-400 font-medium">{{ '%02d'|format(h) }}h</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Colonnes jours -->
+      {% for j in jours %}
+      <div class="flex-1 relative border-r border-slate-100 last:border-0 min-w-0
+        {% if j.est_aujourd_hui %}bg-indigo-50/30{% endif %}"
+           style="height: {{ hauteur_grille }}px; min-width: 110px">
+
+        <!-- Lignes d'heure -->
+        {% for h in grille_heures %}
+        <div class="absolute w-full border-t {% if loop.first %}border-slate-200{% else %}border-slate-100{% endif %}"
+             style="top: {{ (h - grille_heures[0]) * HAUTEUR_HEURE }}px"></div>
+        {% endfor %}
+
+        <!-- Blocs de réservation -->
+        {% for b in j.blocs %}
+        <a href="{{ url_for('reservations') }}"
+           class="absolute left-1 right-1 rounded-lg px-2 py-1 overflow-hidden border cursor-pointer hover:brightness-95 transition-all group"
+           style="top: {{ b.top }}px; height: {{ b.height }}px;
+                  background: {{ b.c.bg }}; color: {{ b.c.text }}; border-color: {{ b.c.border }}">
+          <p class="text-xs font-bold leading-tight truncate">{{ b.r.salle.nom }}</p>
+          {% if b.height >= 40 %}
+          <p class="text-xs leading-tight truncate opacity-80">{{ b.r.classe }}</p>
+          {% endif %}
+          {% if b.height >= 56 %}
+          <p class="text-xs leading-tight truncate opacity-70">
+            {{ b.r.heure_debut.strftime('%H:%M') }}–{{ b.r.heure_fin.strftime('%H:%M') }}
+          </p>
+          {% endif %}
+          {% if b.height >= 72 and b.r.matiere %}
+          <p class="text-xs leading-tight truncate opacity-60 italic">{{ b.r.matiere }}</p>
+          {% endif %}
+        </a>
+        {% endfor %}
+
+        {% if not j.blocs %}
+        <!-- Colonne vide -->
+        {% endif %}
+
+      </div>
+      {% endfor %}
+
+    </div>
+  </div>
+
+  <!-- ── Résumé semaine ── -->
+  {% set total_blocs = jours | map(attribute='blocs') | map('length') | sum %}
+  {% if total_blocs == 0 %}
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm py-10 text-center">
+    <svg class="w-10 h-10 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+    </svg>
+    <p class="text-slate-400 font-medium text-sm">Aucune réservation cette semaine</p>
+    {% if peut_gerer %}
+    <a href="{{ url_for('reservation_ajouter') }}"
+       class="inline-flex items-center gap-1.5 mt-3 text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+      Créer une réservation
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

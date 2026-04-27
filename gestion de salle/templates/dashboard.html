@@ -3,46 +3,100 @@
 {% block heading %}Tableau de bord{% endblock %}
 
 {% block content %}
-<!-- Stats -->
-<div class="grid grid-cols-2 xl:grid-cols-4 gap-5 mb-7">
 
-  {% set stats = [
-    ('bg-indigo-500', 'M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4', 'Salles', nb_salles, ''),
-    ('bg-violet-500', 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z', 'Utilisateurs', nb_utilisateurs, ''),
-    ('bg-emerald-500', 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z', 'Confirmées', nb_confirmees, ''),
-    ('bg-amber-500', 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z', "Aujourd'hui", nb_ce_jour, ''),
-  ] %}
+{# ── Cartes de stats (adaptées au rôle) ── #}
+<div class="grid grid-cols-2 xl:grid-cols-4 gap-4 mb-7">
 
-  {% for color, icon, label, value, _ in stats %}
+  {% if role == 'admin' %}
+    {% set cards = [
+      ('#4f46e5','M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
+        'Salles', stats.nb_salles, 'Total des salles enregistrées'),
+      ('#7c3aed','M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z',
+        'Utilisateurs', stats.nb_utilisateurs, 'Comptes actifs'),
+      ('#059669','M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+        'Confirmées', stats.nb_confirmees, 'Réservations confirmées'),
+      ('#d97706','M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+        'En attente', stats.nb_en_attente, 'En attente de traitement'),
+    ] %}
+
+  {% elif role == 'responsable' %}
+    {% set cards = [
+      ('#4f46e5','M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z',
+        'Ma classe', stats.ma_classe, 'Classe dont vous êtes responsable'),
+      ('#7c3aed','M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+        'Mes réservations', stats.nb_mes_reservations, 'Réservations créées par vous'),
+      ('#059669','M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+        'Confirmées', stats.nb_confirmees_classe, 'Pour votre classe'),
+      ('#0891b2','M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707',
+        "Aujourd'hui", stats.nb_ce_jour_classe, 'Cours de votre classe ce jour'),
+    ] %}
+
+  {% elif role == 'enseignant' %}
+    {% set cards = [
+      ('#4f46e5','M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
+        'Ma matière', stats.ma_matiere, 'Votre spécialité'),
+      ('#7c3aed','M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4',
+        'Salles', stats.nb_salles, 'Salles disponibles'),
+      ('#059669','M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+        'Confirmées', stats.nb_confirmees, 'Réservations confirmées'),
+      ('#0891b2','M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+        "Aujourd'hui", stats.nb_ce_jour, 'Séances planifiées ce jour'),
+    ] %}
+
+  {% else %}{# etudiant #}
+    {% set cards = [
+      ('#4f46e5','M12 14l9-5-9-5-9 5 9 5zm0 0l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0112 20.055a11.952 11.952 0 01-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z',
+        'Ma classe', stats.ma_classe, 'Votre promotion'),
+      ('#059669','M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z',
+        'Mes cours', stats.nb_confirmees_classe, 'Réservations confirmées pour votre classe'),
+      ('#7c3aed','M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z',
+        'Cette semaine', stats.nb_semaine, 'Cours planifiés cette semaine'),
+      ('#0891b2','M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z',
+        "Aujourd'hui", stats.nb_ce_jour, 'Cours planifiés ce jour'),
+    ] %}
+  {% endif %}
+
+  {% for color, icon, label, value, hint in cards %}
   <div class="stat-card bg-white rounded-xl border border-slate-200 shadow-sm p-5 cursor-default">
     <div class="flex items-start justify-between mb-4">
-      <div class="w-10 h-10 {{ color }} rounded-xl flex items-center justify-center shadow-sm">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center shadow-sm"
+           style="background:{{ color }}">
         <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="{{ icon }}"/>
         </svg>
       </div>
     </div>
-    <p class="text-3xl font-bold text-slate-800 mb-1">{{ value }}</p>
-    <p class="text-sm text-slate-500 font-medium">{{ label }}</p>
+    <p class="text-3xl font-bold text-slate-800 mb-0.5 truncate" title="{{ value }}">{{ value }}</p>
+    <p class="text-sm font-semibold text-slate-600">{{ label }}</p>
+    <p class="text-xs text-slate-400 mt-0.5 leading-snug">{{ hint }}</p>
   </div>
   {% endfor %}
+
 </div>
 
-<!-- Réservations récentes -->
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+{# ── Table réservations récentes (admin uniquement) ── #}
+{% if role == 'admin' and reservations_recentes %}
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm mb-6">
   <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
     <div>
       <h3 class="font-semibold text-slate-800">Réservations récentes</h3>
       <p class="text-slate-400 text-xs mt-0.5">Les 5 dernières créées</p>
     </div>
-    <a href="{{ url_for('reservations') }}"
-       class="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 text-sm font-medium transition">
-      Voir tout
-      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-    </a>
+    <div class="flex items-center gap-2">
+      <a href="{{ url_for('reservations_export_csv') }}"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-medium transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+        </svg>
+        Export CSV
+      </a>
+      <a href="{{ url_for('reservations') }}"
+         class="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 text-sm font-medium transition">
+        Voir tout
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </a>
+    </div>
   </div>
-
-  {% if reservations_recentes %}
   <div class="overflow-x-auto">
     <table class="w-full text-sm">
       <thead>
@@ -57,34 +111,21 @@
       <tbody>
         {% for r in reservations_recentes %}
         <tr class="data-row border-b border-slate-50 last:border-0">
-          <td class="px-6 py-3.5">
-            <div class="flex items-center gap-2.5">
-              <div class="w-7 h-7 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
-                <svg class="w-3.5 h-3.5 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/></svg>
-              </div>
-              <span class="font-medium text-slate-800">{{ r.salle.nom }}</span>
-            </div>
+          <td class="px-6 py-3.5 font-medium text-slate-800">{{ r.salle.nom }}</td>
+          <td class="px-6 py-3.5 text-slate-600">
+            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium">{{ r.classe }}</span>
           </td>
-          <td class="px-6 py-3.5 text-slate-600">{{ r.classe }}</td>
-          <td class="px-6 py-3.5 text-slate-600">{{ r.date.strftime('%d/%m/%Y') }}</td>
+          <td class="px-6 py-3.5 text-slate-600 text-xs">{{ r.date.strftime('%d/%m/%Y') }}</td>
           <td class="px-6 py-3.5 text-slate-600 font-mono text-xs">{{ r.heure_debut.strftime('%H:%M') }} – {{ r.heure_fin.strftime('%H:%M') }}</td>
           <td class="px-6 py-3.5">
-            {% if r.statut.value == 'confirmee' %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
-                <span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> Confirmée
-              </span>
+            {% if r.statut == StatutReservation.CONFIRMEE %}
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Confirmée</span>
             {% elif r.statut.value == 'en_attente' %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
-                <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span> En attente
-              </span>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>En attente</span>
             {% elif r.statut.value == 'annulee' %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700">
-                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span> Annulée
-              </span>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Annulée</span>
             {% else %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600">
-                <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Terminée
-              </span>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Terminée</span>
             {% endif %}
           </td>
         </tr>
@@ -92,12 +133,91 @@
       </tbody>
     </table>
   </div>
-  {% else %}
-  <div class="text-center py-16">
-    <svg class="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-    <p class="text-slate-400 text-sm font-medium">Aucune réservation pour le moment</p>
-    <p class="text-slate-300 text-xs mt-1">Les réservations créées apparaîtront ici.</p>
-  </div>
-  {% endif %}
 </div>
+{% endif %}
+
+{# ── Table prochaines réservations (responsable, enseignant, étudiant) ── #}
+{% if prochaines %}
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm">
+  <div class="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div>
+      {% if role == 'etudiant' %}
+        <h3 class="font-semibold text-slate-800">Prochains cours</h3>
+        <p class="text-slate-400 text-xs mt-0.5">Réservations confirmées pour votre classe</p>
+      {% elif role == 'responsable' %}
+        <h3 class="font-semibold text-slate-800">Planning à venir — {{ stats.ma_classe }}</h3>
+        <p class="text-slate-400 text-xs mt-0.5">Prochaines réservations de votre classe</p>
+      {% else %}
+        <h3 class="font-semibold text-slate-800">Planning à venir</h3>
+        <p class="text-slate-400 text-xs mt-0.5">Réservations confirmées</p>
+      {% endif %}
+    </div>
+    <div class="flex items-center gap-2">
+      <a href="{{ url_for('reservations_export_csv') }}"
+         class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-medium transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3M3 17V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"/>
+        </svg>
+        Export CSV
+      </a>
+      <a href="{{ url_for('planning') }}"
+         class="inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 text-sm font-medium transition">
+        Planning
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </a>
+    </div>
+  </div>
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-100">
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Date</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Horaire</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Salle</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Classe</th>
+          <th class="px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Matière</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in prochaines %}
+        {% set est_aujourd_hui = r.date == aujourd_hui %}
+        <tr class="data-row border-b border-slate-50 last:border-0 {% if est_aujourd_hui %}bg-indigo-50/40{% endif %}">
+          <td class="px-6 py-3.5">
+            <div class="flex items-center gap-2">
+              {% if est_aujourd_hui %}
+                <span class="w-2 h-2 rounded-full bg-indigo-500 shrink-0"></span>
+                <span class="text-indigo-700 font-semibold text-xs">Aujourd'hui</span>
+              {% else %}
+                <span class="text-slate-600 text-xs">{{ r.date.strftime('%a %d/%m') }}</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="px-6 py-3.5 font-mono text-xs text-slate-600">{{ r.heure_debut.strftime('%H:%M') }} – {{ r.heure_fin.strftime('%H:%M') }}</td>
+          <td class="px-6 py-3.5">
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                <svg class="w-3 h-3 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16"/></svg>
+              </div>
+              <span class="font-medium text-slate-700">{{ r.salle.nom }}</span>
+            </div>
+          </td>
+          <td class="px-6 py-3.5">
+            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium">{{ r.classe }}</span>
+          </td>
+          <td class="px-6 py-3.5 text-slate-500 text-xs">{{ r.matiere or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% elif not reservations_recentes %}
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm py-16 text-center">
+  <svg class="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+  <p class="text-slate-400 font-medium text-sm">Aucun cours à venir</p>
+  <p class="text-slate-300 text-xs mt-1">Les réservations apparaîtront ici dès qu'elles seront créées.</p>
+</div>
+{% endif %}
+
 {% endblock %}

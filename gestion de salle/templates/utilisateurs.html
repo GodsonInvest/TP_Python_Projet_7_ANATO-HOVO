@@ -3,14 +3,79 @@
 {% block heading %}Gestion des utilisateurs{% endblock %}
 
 {% block content %}
-<div class="flex items-center justify-between mb-6">
-  <p class="text-slate-500 text-sm">{{ utilisateurs|length }} utilisateur(s) enregistré(s)</p>
+
+<!-- En-tête : compteur + bouton ajouter -->
+<div class="flex items-center justify-between mb-5">
+  <p class="text-slate-500 text-sm">
+    <span class="font-semibold text-slate-700">{{ utilisateurs|length }}</span>
+    {% if filtre_role or filtre_search %}résultat(s){% else %}utilisateur(s){% endif %}
+    {% if filtre_role or filtre_search %}
+      <span class="text-slate-400">sur {{ compteurs.tous }} au total</span>
+    {% endif %}
+  </p>
   <a href="{{ url_for('utilisateurs_inscrire') }}" class="btn-primary">
-    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+    </svg>
     Nouvel utilisateur
   </a>
 </div>
 
+<!-- Barre de filtres -->
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm mb-4 px-4 py-3 flex flex-wrap items-center gap-3">
+
+  <!-- Onglets rôle -->
+  <div class="flex items-center gap-1 flex-wrap">
+    {% set tabs = [
+      ('', 'Tous', 'tous', 'bg-slate-700 text-white', 'bg-slate-100 text-slate-600 hover:bg-slate-200'),
+      ('etudiant',    'Étudiants',    'etudiant',    'bg-indigo-600 text-white', 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100'),
+      ('enseignant',  'Enseignants',  'enseignant',  'bg-blue-600 text-white',   'bg-blue-50 text-blue-700 hover:bg-blue-100'),
+      ('responsable', 'Responsables', 'responsable', 'bg-amber-500 text-white',  'bg-amber-50 text-amber-700 hover:bg-amber-100'),
+      ('admin',       'Admins',       'admin',       'bg-red-600 text-white',    'bg-red-50 text-red-700 hover:bg-red-100'),
+    ] %}
+    {% for val, label, cle, active_cls, inactive_cls in tabs %}
+    <a href="{{ url_for('utilisateurs', role=val, q=filtre_search) }}"
+       class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
+         {% if filtre_role == val %}{{ active_cls }}{% else %}{{ inactive_cls }}{% endif %}">
+      {{ label }}
+      <span class="{% if filtre_role == val %}bg-white/20{% else %}bg-black/10{% endif %} rounded px-1 py-0.5 text-xs font-bold leading-none">
+        {{ compteurs[cle] }}
+      </span>
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Séparateur vertical -->
+  <div class="hidden sm:block w-px h-5 bg-slate-200"></div>
+
+  <!-- Recherche -->
+  <form method="GET" action="{{ url_for('utilisateurs') }}" class="flex items-center gap-2 flex-1 min-w-48">
+    <input type="hidden" name="role" value="{{ filtre_role }}"/>
+    <div class="relative flex-1">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none"
+           fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      <input type="text" name="q" value="{{ filtre_search }}"
+             placeholder="Rechercher nom, email, login…"
+             class="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-sm
+                    focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white transition-all"/>
+    </div>
+    <button type="submit"
+      class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold transition shrink-0">
+      OK
+    </button>
+    {% if filtre_search %}
+    <a href="{{ url_for('utilisateurs', role=filtre_role) }}"
+       class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 text-xs transition shrink-0">
+      ✕
+    </a>
+    {% endif %}
+  </form>
+
+</div>
+
+<!-- Tableau -->
 <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
   {% if utilisateurs %}
   <div class="overflow-x-auto">
@@ -27,6 +92,8 @@
       <tbody>
         {% for u in utilisateurs %}
         <tr class="data-row border-b border-slate-50 last:border-0">
+
+          <!-- Identité -->
           <td class="px-6 py-4">
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shrink-0
@@ -37,36 +104,64 @@
                 {{ u.nom[0].upper() }}
               </div>
               <div>
-                <p class="font-semibold text-slate-800">{{ u.nom }}</p>
+                <p class="font-semibold text-slate-800">
+                  {% if filtre_search and filtre_search in u.nom.lower() %}
+                    {{ u.nom | replace(filtre_search, '<mark class="bg-yellow-100 text-yellow-900 rounded px-0.5">' ~ filtre_search ~ '</mark>') | safe }}
+                  {% else %}
+                    {{ u.nom }}
+                  {% endif %}
+                </p>
                 <p class="text-xs text-slate-400">{{ u.email }}</p>
               </div>
             </div>
           </td>
+
+          <!-- Login -->
           <td class="px-6 py-4">
             <code class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md font-mono">{{ u.login }}</code>
           </td>
+
+          <!-- Rôle -->
           <td class="px-6 py-4">
             {% if u.role == 'admin' %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Admin</span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700">
+                <span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Admin
+              </span>
             {% elif u.role == 'responsable' %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700"><span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Responsable</span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>Responsable
+              </span>
             {% elif u.role == 'enseignant' %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700"><span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>Enseignant</span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span>Enseignant
+              </span>
             {% else %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700"><span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>Étudiant</span>
+              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700">
+                <span class="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>Étudiant
+              </span>
             {% endif %}
           </td>
+
+          <!-- Détail -->
           <td class="px-6 py-4 text-slate-500 text-xs">
-            {% if u.role == 'etudiant' %}{{ u.matricule or '—' }} · {{ u.classe or '—' }}
-            {% elif u.role == 'responsable' %}Classe : {{ u.classe or '—' }}
-            {% elif u.role == 'enseignant' %}{{ u.matiere or '—' }}
+            {% if u.role == 'etudiant' %}
+              <span class="font-mono">{{ u.matricule or '—' }}</span>
+              {% if u.classe %}<span class="mx-1 text-slate-300">·</span><span>{{ u.classe }}</span>{% endif %}
+            {% elif u.role == 'responsable' %}
+              Classe : <strong class="text-slate-600">{{ u.classe or '—' }}</strong>
+            {% elif u.role == 'enseignant' %}
+              {{ u.matiere or '—' }}
             {% else %}—{% endif %}
           </td>
+
+          <!-- Actions -->
           <td class="px-6 py-4">
             <div class="flex items-center justify-end gap-1.5 flex-wrap">
               <a href="{{ url_for('utilisateurs_modifier', user_id=u.id) }}"
                  class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-medium transition">
-                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                </svg>
                 Modifier
               </a>
 
@@ -77,7 +172,9 @@
                   <input type="hidden" name="classe" class="classe-input" value=""/>
                   <button type="submit"
                     class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-medium transition">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                    </svg>
                     Promouvoir
                   </button>
                 </form>
@@ -98,7 +195,9 @@
                       onsubmit="return confirm('Supprimer l\'utilisateur {{ u.nom }} ?')">
                   <button type="submit"
                     class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium transition">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+                    </svg>
                     Supprimer
                   </button>
                 </form>
@@ -110,10 +209,23 @@
       </tbody>
     </table>
   </div>
+
   {% else %}
+  <!-- État vide -->
   <div class="text-center py-16">
-    <svg class="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-    <p class="text-slate-400 font-medium text-sm">Aucun utilisateur enregistré</p>
+    {% if filtre_role or filtre_search %}
+      <svg class="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+      </svg>
+      <p class="text-slate-500 font-semibold text-sm mb-1">Aucun résultat</p>
+      <p class="text-slate-400 text-xs mb-4">Essayez un autre filtre ou terme de recherche.</p>
+      <a href="{{ url_for('utilisateurs') }}" class="btn-secondary text-xs">Réinitialiser les filtres</a>
+    {% else %}
+      <svg class="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+      </svg>
+      <p class="text-slate-400 font-medium text-sm">Aucun utilisateur enregistré</p>
+    {% endif %}
   </div>
   {% endif %}
 </div>
