@@ -181,11 +181,15 @@ def _notifier(reservation, utilisateurs, annulation=False):
                 if isinstance(u, Etudiant) and _niveau(u.classe) in niveaux_res
             ]
 
-        enseignant = next(
-            (u for u in utilisateurs.values()
-             if isinstance(u, Enseignant) and u.matiere == reservation.matiere),
-            None,
-        )
+        ens_id = getattr(reservation, "enseignant_id", None)
+        if ens_id:
+            enseignant = utilisateurs.get(ens_id) if isinstance(utilisateurs.get(ens_id), Enseignant) else None
+        else:
+            enseignant = next(
+                (u for u in utilisateurs.values()
+                 if isinstance(u, Enseignant) and reservation.matiere in u.matieres),
+                None,
+            )
         notif.envoyer_responsable(reservation, annulation)
         if enseignant:
             notif.envoyer_enseignant(reservation, enseignant, annulation)
@@ -254,7 +258,8 @@ def inscription():
         role               = request.form.get("role", "etudiant")
         classe             = request.form.get("classe", "").strip()
         matricule          = request.form.get("matricule", "").strip()
-        matiere            = request.form.get("matiere", "").strip()
+        matieres_list      = request.form.getlist("matiere[]")
+        matiere            = ", ".join(m.strip() for m in matieres_list if m.strip())
         ecole_id_str       = request.form.get("ecole_id", "").strip()
         unite_id_str       = request.form.get("unite_formation_id", "").strip()
 
@@ -801,15 +806,24 @@ def reservation_ajouter():
     ]
     unites_json = json.dumps([u.to_dict() for u in unites])
 
+    # Liste des enseignants pour le sélecteur
+    enseignants = [u for u in utilisateurs.values() if isinstance(u, Enseignant)]
+    enseignants_json = json.dumps([
+        {"id": e.id, "nom": e.nom, "matieres": e.matieres}
+        for e in sorted(enseignants, key=lambda x: x.nom)
+    ])
+
     if request.method == "POST":
-        salle_id  = request.form.get("salle_id", "")
+        salle_id      = request.form.get("salle_id", "")
         # Unités cochées (ex: ["U15","U17"]) ou champ texte de secours
-        unites_cb = request.form.getlist("unites")
-        classe    = ",".join(unites_cb) if unites_cb else request.form.get("classe", "").strip()
-        date_str  = request.form.get("date", "").strip()
-        debut_str = request.form.get("heure_debut", "").strip()
-        fin_str   = request.form.get("heure_fin", "").strip()
-        matiere   = request.form.get("matiere", "").strip()
+        unites_cb     = request.form.getlist("unites")
+        classe        = ",".join(unites_cb) if unites_cb else request.form.get("classe", "").strip()
+        date_str      = request.form.get("date", "").strip()
+        debut_str     = request.form.get("heure_debut", "").strip()
+        fin_str       = request.form.get("heure_fin", "").strip()
+        matiere       = request.form.get("matiere", "").strip()
+        ens_id_str    = request.form.get("enseignant_id", "").strip()
+        enseignant_id = int(ens_id_str) if ens_id_str.isdigit() else None
 
         salle       = salles_dict.get(int(salle_id)) if salle_id.isdigit() else None
         responsable = utilisateurs.get(session["user_id"])
@@ -829,6 +843,7 @@ def reservation_ajouter():
                     heure_fin=dtime.fromisoformat(fin_str),
                     matiere=matiere,
                 )
+                r.enseignant_id = enseignant_id
                 bd.sauvegarder_reservation(r)
                 _notifier(r, utilisateurs, annulation=False)
                 flash(f"Réservation créée — {salle.nom} le {date_str}.", "success")
@@ -845,6 +860,7 @@ def reservation_ajouter():
         pre_ecole_id=pre_ecole_id,
         ecoles_filieres=ecoles_filieres,
         unites_json=unites_json,
+        enseignants_json=enseignants_json,
         user_role=session.get("user_role"),
     )
 
@@ -1098,10 +1114,11 @@ def utilisateurs_inscrire():
         email     = request.form.get("email", "").strip()
         login_val = request.form.get("login", "").strip()
         mdp       = request.form.get("mot_de_passe", "").strip()
-        role      = request.form.get("role", "etudiant")
-        classe    = request.form.get("classe", "").strip()
-        matiere   = request.form.get("matiere", "").strip()
-        matricule = request.form.get("matricule", "").strip()
+        role          = request.form.get("role", "etudiant")
+        classe        = request.form.get("classe", "").strip()
+        matieres_list = request.form.getlist("matiere[]")
+        matiere       = ", ".join(m.strip() for m in matieres_list if m.strip())
+        matricule     = request.form.get("matricule", "").strip()
 
         if not all([nom, email, login_val, mdp]):
             flash("Tous les champs de base sont obligatoires.", "error")
@@ -1231,6 +1248,49 @@ def profil():
     return render_template("profil.html", active="profil", u=u)
 
 
+@app.route("/profil/matieres/ajouter", methods=["POST"])
+@login_required
+def profil_ajouter_matiere():
+    bd = get_bd()
+    u  = bd.charger_utilisateur_par_id(session["user_id"])
+    if not isinstance(u, Enseignant):
+        flash("Accès réservé aux enseignants.", "error")
+        return redirect(url_for("profil"))
+
+    nouvelle = request.form.get("nouvelle_matiere", "").strip()
+    if not nouvelle:
+        flash("Nom de matière requis.", "error")
+        return redirect(url_for("profil"))
+
+    matieres = u.matieres
+    if nouvelle.lower() in [m.lower() for m in matieres]:
+        flash(f"La matière « {nouvelle} » est déjà dans votre liste.", "warning")
+        return redirect(url_for("profil"))
+
+    matieres.append(nouvelle)
+    u.matiere = ", ".join(matieres)
+    bd.sauvegarder_utilisateur(u)
+    flash(f"Matière « {nouvelle} » ajoutée.", "success")
+    return redirect(url_for("profil"))
+
+
+@app.route("/profil/matieres/supprimer", methods=["POST"])
+@login_required
+def profil_supprimer_matiere():
+    bd = get_bd()
+    u  = bd.charger_utilisateur_par_id(session["user_id"])
+    if not isinstance(u, Enseignant):
+        flash("Accès réservé aux enseignants.", "error")
+        return redirect(url_for("profil"))
+
+    a_supprimer = request.form.get("matiere", "").strip()
+    matieres    = [m for m in u.matieres if m != a_supprimer]
+    u.matiere   = ", ".join(matieres)
+    bd.sauvegarder_utilisateur(u)
+    flash(f"Matière « {a_supprimer} » supprimée.", "success")
+    return redirect(url_for("profil"))
+
+
 @app.route("/utilisateurs/<int:user_id>/modifier", methods=["GET", "POST"])
 @login_required
 @admin_required
@@ -1246,7 +1306,8 @@ def utilisateurs_modifier(user_id):
         email   = request.form.get("email", "").strip()
         nouveau = request.form.get("nouveau_mot_de_passe", "").strip()
         classe  = request.form.get("classe", "").strip()
-        matiere = request.form.get("matiere", "").strip()
+        matieres_list = request.form.getlist("matiere[]")
+        matiere       = ", ".join(m.strip() for m in matieres_list if m.strip())
 
         if nom:
             u.nom = nom
@@ -1263,7 +1324,7 @@ def utilisateurs_modifier(user_id):
             u.mot_de_passe = Authentification.hacher_mot_de_passe(nouveau)
         if classe and hasattr(u, "classe"):
             u.classe = classe
-        if matiere and hasattr(u, "matiere"):
+        if hasattr(u, "matiere"):
             u.matiere = matiere
 
         bd.sauvegarder_utilisateur(u)

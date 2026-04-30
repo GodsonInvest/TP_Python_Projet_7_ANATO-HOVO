@@ -26,7 +26,10 @@
           <span class="text-slate-500 text-xs">Classe {{ u.classe }}</span>
         {% elif u.role == 'enseignant' %}
           <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700">Enseignant</span>
-          {% if u.matiere %}<span class="text-slate-300 text-xs">·</span><span class="text-slate-500 text-xs">{{ u.matiere }}</span>{% endif %}
+          {% for m in u.matieres %}
+            <span class="text-slate-300 text-xs">·</span>
+            <span class="text-slate-500 text-xs">{{ m }}</span>
+          {% endfor %}
         {% else %}
           <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700">Étudiant</span>
           {% if u.classe %}<span class="text-slate-300 text-xs">·</span><span class="text-slate-500 text-xs">{{ u.classe }}</span>{% endif %}
@@ -36,6 +39,61 @@
       </div>
     </div>
   </div>
+
+  {% if u.role == 'enseignant' %}
+  <!-- Gestion des matières (enseignant uniquement) -->
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+      <div>
+        <h3 class="font-semibold text-slate-700 text-sm">Mes matières enseignées</h3>
+        <p class="text-xs text-slate-400 mt-0.5">Gérez la liste de vos matières. Elles servent à recevoir les notifications de réservation.</p>
+      </div>
+      <span class="text-xs font-semibold text-slate-500 bg-slate-100 rounded-full px-2.5 py-1">
+        {{ u.matieres|length }} matière(s)
+      </span>
+    </div>
+    <div class="px-6 py-5 space-y-4">
+
+      <!-- Liste des matières actuelles -->
+      {% if u.matieres %}
+      <div class="flex flex-wrap gap-2">
+        {% for m in u.matieres %}
+        <form method="POST" action="{{ url_for('profil_supprimer_matiere') }}"
+              onsubmit="return confirm('Supprimer la matière « {{ m }} » ?')"
+              class="inline-flex items-center gap-1.5 pl-3 pr-2 py-1.5 rounded-full
+                     bg-blue-50 border border-blue-100 text-blue-700 text-xs font-semibold group">
+          <span>{{ m }}</span>
+          <input type="hidden" name="matiere" value="{{ m }}"/>
+          <button type="submit"
+            class="w-4 h-4 rounded-full flex items-center justify-center
+                   hover:bg-blue-200 text-blue-500 transition text-xs leading-none"
+            title="Supprimer">✕</button>
+        </form>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-slate-400 text-sm italic">Aucune matière enregistrée.</p>
+      {% endif %}
+
+      <!-- Ajouter une matière -->
+      <form method="POST" action="{{ url_for('profil_ajouter_matiere') }}"
+            class="flex gap-2 pt-3 border-t border-slate-100">
+        <input type="text" name="nouvelle_matiere" required
+          placeholder="Nouvelle matière (ex : Physique)"
+          class="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-sm
+                 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all"/>
+        <button type="submit"
+          class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700
+                 text-white text-sm font-semibold transition shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Ajouter
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
 
   <!-- Modifier profil -->
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">

@@ -156,6 +156,10 @@ class Enseignant(Utilisateur):
     def matiere(self, valeur: str):
         self.__matiere = valeur
 
+    @property
+    def matieres(self) -> list:
+        return [m.strip() for m in self.__matiere.split(",") if m.strip()]
+
     def to_dict(self) -> dict:
         d = super().to_dict()
         d.update({"matiere": self.__matiere})

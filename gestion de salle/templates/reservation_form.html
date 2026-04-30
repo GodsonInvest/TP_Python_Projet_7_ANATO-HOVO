@@ -88,10 +88,22 @@
           <span class="text-xs text-indigo-700 font-medium">Notifié : <strong id="classe-apercu-txt"></strong></span>
         </div>
 
+        <!-- Enseignant -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Enseignant</label>
+          <select id="enseignant-select" name="enseignant_id" onchange="onEnseignantChange()"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            <option value="">— Aucun enseignant —</option>
+          </select>
+        </div>
+
         <!-- Matière -->
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">Matière</label>
-          <input type="text" name="matiere" placeholder="ex : Algorithmique, Mathématiques..."
+          <select id="matiere-select" name="matiere" class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all hidden">
+            <option value="">— Sélectionner une matière —</option>
+          </select>
+          <input type="text" id="matiere-input" name="matiere" placeholder="ex : Algorithmique, Mathématiques..."
             class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
         </div>
 
@@ -131,7 +143,50 @@
 </div>
 
 <script>
-const UNITES_DATA = {{ unites_json | safe }};
+const UNITES_DATA      = {{ unites_json | safe }};
+const ENSEIGNANTS_DATA = {{ enseignants_json | safe }};
+
+// Populate enseignant dropdown on page load
+(function initEnseignants() {
+  const sel = document.getElementById('enseignant-select');
+  ENSEIGNANTS_DATA.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value       = e.id;
+    opt.textContent = e.nom + (e.matieres.length ? ' — ' + e.matieres.join(', ') : '');
+    opt.dataset.matieres = JSON.stringify(e.matieres);
+    sel.appendChild(opt);
+  });
+})();
+
+function onEnseignantChange() {
+  const sel      = document.getElementById('enseignant-select');
+  const selOpt   = sel.options[sel.selectedIndex];
+  const matSel   = document.getElementById('matiere-select');
+  const matInput = document.getElementById('matiere-input');
+
+  let matieres = [];
+  try { matieres = JSON.parse(selOpt.dataset.matieres || '[]'); } catch (_) {}
+
+  if (sel.value && matieres.length) {
+    // Show dropdown, hide text input (remove name from input to avoid double submit)
+    matInput.classList.add('hidden');
+    matInput.removeAttribute('name');
+    matSel.classList.remove('hidden');
+    matSel.setAttribute('name', 'matiere');
+    matSel.innerHTML = '<option value="">— Sélectionner une matière —</option>';
+    matieres.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m; opt.textContent = m;
+      matSel.appendChild(opt);
+    });
+  } else {
+    // Show text input, hide dropdown
+    matSel.classList.add('hidden');
+    matSel.removeAttribute('name');
+    matInput.classList.remove('hidden');
+    matInput.setAttribute('name', 'matiere');
+  }
+}
 
 function filterUnites() {
   const ecoleId   = parseInt(document.getElementById('ecole-select').value);

@@ -117,6 +117,7 @@ class BaseDonneesSQLite:
             ("utilisateurs",    "unite_formation_id",  "INTEGER"),
             ("ecoles",          "abreviation",         "TEXT NOT NULL DEFAULT ''"),
             ("unites_formation","abreviation",         "TEXT NOT NULL DEFAULT ''"),
+            ("reservations",    "enseignant_id",       "INTEGER"),
         ]
         with self._connexion() as conn:
             for table, col, typ in migrations:
@@ -261,22 +262,23 @@ class BaseDonneesSQLite:
         params = (
             d["salle_id"], d["responsable_id"], d["classe"],
             d["date"], d["heure_debut"], d["heure_fin"],
-            d["matiere"], d["statut"], d["date_creation"],
+            d["matiere"], d.get("enseignant_id"), d["statut"], d["date_creation"],
         )
         with self._connexion() as conn:
             try:
                 conn.execute(
                     "INSERT INTO reservations "
                     "(id, salle_id, responsable_id, classe, date, "
-                    " heure_debut, heure_fin, matiere, statut, date_creation) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                    " heure_debut, heure_fin, matiere, enseignant_id, statut, date_creation) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
                     (d["id"], *params),
                 )
             except sqlite3.IntegrityError:
                 conn.execute(
                     "UPDATE reservations "
                     "SET salle_id=?, responsable_id=?, classe=?, date=?, "
-                    "    heure_debut=?, heure_fin=?, matiere=?, statut=?, date_creation=? "
+                    "    heure_debut=?, heure_fin=?, matiere=?, enseignant_id=?, "
+                    "    statut=?, date_creation=? "
                     "WHERE id=?",
                     (*params, d["id"]),
                 )
@@ -308,12 +310,15 @@ class BaseDonneesSQLite:
                 f"Données manquantes pour réservation #{row['id']} — "
                 f"salle_id={row['salle_id']}, responsable_id={row['responsable_id']}"
             )
+        keys = row.keys()
+        ens_id = row["enseignant_id"] if "enseignant_id" in keys else None
         r = Reservation(
             salle=salle, responsable=responsable, classe=row["classe"],
             date_reservation=date.fromisoformat(row["date"]),
             heure_debut=time.fromisoformat(row["heure_debut"]),
             heure_fin=time.fromisoformat(row["heure_fin"]),
             matiere=row["matiere"] or "",
+            enseignant_id=ens_id,
         )
         r.id = row["id"]
         # name-mangling : pas de setter public pour statut ni date_creation

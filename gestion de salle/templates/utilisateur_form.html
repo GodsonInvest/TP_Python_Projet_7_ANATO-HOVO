@@ -56,10 +56,22 @@
           </div>
         </div>
 
-        <div id="fields-enseignant" class="hidden">
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Matière</label>
-          <input type="text" name="matiere" placeholder="Algorithmique"
-            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+        <div id="fields-enseignant" class="hidden space-y-3">
+          <div class="flex items-center justify-between">
+            <label class="block text-sm font-medium text-slate-700">Matières enseignées</label>
+            <button type="button" onclick="ajouterMatiere()"
+              class="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 hover:text-indigo-800 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+              Ajouter
+            </button>
+          </div>
+          <div id="matieres-list" class="space-y-2">
+            <div class="flex gap-2">
+              <input type="text" name="matiere[]" placeholder="ex : Algorithmique"
+                class="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm
+                       focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            </div>
+          </div>
         </div>
 
         <div class="flex items-center gap-3 pt-2 border-t border-slate-100">
@@ -78,6 +90,21 @@ function toggleRoleFields() {
   const r = document.getElementById('role-select').value;
   document.getElementById('fields-etudiant').classList.toggle('hidden', r !== 'etudiant');
   document.getElementById('fields-enseignant').classList.toggle('hidden', r !== 'enseignant');
+}
+function ajouterMatiere() {
+  const list = document.getElementById('matieres-list');
+  const div  = document.createElement('div');
+  div.className = 'flex gap-2';
+  div.innerHTML = `
+    <input type="text" name="matiere[]" placeholder="ex : Mathématiques"
+      class="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm
+             focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+    <button type="button" onclick="this.closest('div').remove()"
+      class="px-3 rounded-xl border border-red-200 bg-red-50 hover:bg-red-100
+             text-red-500 text-xs font-medium transition shrink-0">✕</button>
+  `;
+  list.appendChild(div);
+  div.querySelector('input').focus();
 }
 </script>
 {% endblock %}
