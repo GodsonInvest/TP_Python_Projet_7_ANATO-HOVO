@@ -99,6 +99,39 @@ def _html_otp(otp: str, nom: str = "") -> str:
 """ + _FOOTER + _WRAP_END
 
 
+def _html_reset_otp(otp: str, nom: str = "") -> str:
+    salut = f"Bonjour{' ' + nom if nom else ''},"
+    return _WRAP_START + _HEADER + f"""
+      <tr>
+        <td style="padding:40px 40px 16px;">
+          <p style="margin:0 0 8px;color:#1e293b;font-size:22px;font-weight:700;">{salut}</p>
+          <p style="margin:0;color:#64748b;font-size:15px;line-height:1.6;">
+            Vous avez demandé la réinitialisation de votre mot de passe sur <strong>UniRéserv</strong>.<br/>
+            Utilisez le code ci-dessous pour créer un nouveau mot de passe.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 40px;">
+          <div style="background:#fff7ed;border:2px dashed #fed7aa;border-radius:12px;
+                      padding:28px;text-align:center;">
+            <p style="margin:0 0 6px;color:#ea580c;font-size:12px;font-weight:600;
+                      letter-spacing:2px;text-transform:uppercase;">Code de réinitialisation</p>
+            <p style="margin:0;font-size:48px;font-weight:800;letter-spacing:12px;
+                      color:#c2410c;font-family:'Courier New',monospace;">{otp}</p>
+          </div>
+          <div style="margin-top:20px;background:#fef9c3;border-left:4px solid #eab308;
+                      border-radius:6px;padding:12px 16px;">
+            <p style="margin:0;color:#854d0e;font-size:13px;line-height:1.6;">
+              ⏱ Ce code expire dans <strong>10 minutes</strong>.<br/>
+              Si vous n'avez pas demandé cette réinitialisation, ignorez cet email.
+            </p>
+          </div>
+        </td>
+      </tr>
+""" + _FOOTER + _WRAP_END
+
+
 def _html_reservation(reservation: Reservation, annulation: bool = False) -> str:
     r = reservation
     if annulation:
@@ -236,6 +269,13 @@ class NotificationEmail:
             destinataire,
             "🔐 Code de vérification — UniRéserv",
             _html_otp(otp, nom),
+        )
+
+    def envoyer_otp_reset(self, destinataire: str, otp: str, nom: str = ""):
+        self.envoyer_email(
+            destinataire,
+            "🔑 Réinitialisation de mot de passe — UniRéserv",
+            _html_reset_otp(otp, nom),
         )
 
     def envoyer_test(self, destinataire: str):

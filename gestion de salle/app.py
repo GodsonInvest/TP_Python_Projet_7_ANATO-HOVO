@@ -139,6 +139,17 @@ def _envoyer_otp(email: str, otp: str, nom: str = "") -> bool:
         return False
 
 
+def _envoyer_otp_reset(email: str, otp: str, nom: str = "") -> bool:
+    notif = _get_notif()
+    if notif is None:
+        return False
+    try:
+        notif.envoyer_otp_reset(email, otp, nom)
+        return True
+    except Exception:
+        return False
+
+
 def _niveau(classe: str) -> str:
     """Extrait le niveau (L1/L2/L3/M1/M2) d'une chaîne de classe."""
     import re
@@ -375,6 +386,150 @@ def inscription_verifier():
 def logout():
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.route("/mot-de-passe-oublie", methods=["GET", "POST"])
+def mot_de_passe_oublie():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+
+    if request.method == "POST":
+        email = request.form.get("email", "").strip()
+        if not email:
+            flash("Veuillez saisir votre adresse email.", "error")
+            return render_template("mot_de_passe_oublie.html")
+
+        bd = get_bd()
+        utilisateur = next(
+            (u for u in bd.charger_tous_utilisateurs() if u.email == email),
+            None,
+        )
+
+        if utilisateur is None:
+            flash("Si un compte existe avec cet email, un code vous a été envoyé.", "success")
+            return render_template("mot_de_passe_oublie.html")
+
+        otp    = _generer_otp()
+        expire = (datetime.now() + timedelta(minutes=10)).isoformat()
+        session["reset_pending"] = {
+            "code":       otp,
+            "expire":     expire,
+            "tentatives": 0,
+            "user_id":    utilisateur.id,
+            "email":      utilisateur.email,
+            "nom":        utilisateur.nom,
+            "verified":   False,
+        }
+
+        envoye = _envoyer_otp_reset(email, otp, utilisateur.nom)
+        if envoye:
+            flash(f"Un code de réinitialisation a été envoyé à {email}.", "success")
+        else:
+            flash(
+                f"SMTP non configuré — code de test : {otp}  "
+                f"(Configurez SMTP dans les Paramètres).",
+                "warning",
+            )
+        return redirect(url_for("mot_de_passe_oublie_verifier"))
+
+    return render_template("mot_de_passe_oublie.html")
+
+
+@app.route("/mot-de-passe-oublie/verifier", methods=["GET", "POST"])
+def mot_de_passe_oublie_verifier():
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+
+    donnees = session.get("reset_pending")
+    if not donnees:
+        flash("Session expirée. Recommencez la réinitialisation.", "error")
+        return redirect(url_for("mot_de_passe_oublie"))
+
+    if datetime.now() > datetime.fromisoformat(donnees["expire"]):
+        session.pop("reset_pending", None)
+        flash("Le code a expiré. Recommencez la réinitialisation.", "error")
+        return redirect(url_for("mot_de_passe_oublie"))
+
+    at = donnees["email"].find("@")
+    email_masque = donnees["email"][:2] + "***" + donnees["email"][at:]
+
+    if request.method == "POST":
+        action = request.form.get("action", "verifier")
+
+        if action == "renvoyer":
+            otp = _generer_otp()
+            donnees["code"]       = otp
+            donnees["expire"]     = (datetime.now() + timedelta(minutes=10)).isoformat()
+            donnees["tentatives"] = 0
+            donnees["verified"]   = False
+            session["reset_pending"] = donnees
+            envoye = _envoyer_otp_reset(donnees["email"], otp, donnees.get("nom", ""))
+            if envoye:
+                flash("Un nouveau code a été envoyé.", "success")
+            else:
+                flash(f"SMTP non configuré — nouveau code : {otp}", "warning")
+            return redirect(url_for("mot_de_passe_oublie_verifier"))
+
+        if action == "verifier":
+            otp_saisi = request.form.get("otp", "").strip()
+            donnees["tentatives"] = donnees.get("tentatives", 0) + 1
+            session["reset_pending"] = donnees
+
+            if donnees["tentatives"] > 5:
+                session.pop("reset_pending", None)
+                flash("Trop de tentatives. Recommencez la réinitialisation.", "error")
+                return redirect(url_for("mot_de_passe_oublie"))
+
+            if otp_saisi != donnees["code"]:
+                restants = 5 - donnees["tentatives"]
+                flash(f"Code incorrect. {restants} tentative(s) restante(s).", "error")
+                return render_template("mot_de_passe_reset.html",
+                                       email_masque=email_masque, etape="otp")
+
+            donnees["verified"] = True
+            session["reset_pending"] = donnees
+            flash("Code vérifié. Choisissez votre nouveau mot de passe.", "success")
+            return render_template("mot_de_passe_reset.html",
+                                   email_masque=email_masque, etape="password")
+
+        if action == "changer":
+            if not donnees.get("verified"):
+                flash("Vérification OTP requise.", "error")
+                return render_template("mot_de_passe_reset.html",
+                                       email_masque=email_masque, etape="otp")
+
+            mdp1 = request.form.get("mot_de_passe", "").strip()
+            mdp2 = request.form.get("mot_de_passe_confirm", "").strip()
+
+            if not mdp1 or not mdp2:
+                flash("Veuillez remplir les deux champs.", "error")
+                return render_template("mot_de_passe_reset.html",
+                                       email_masque=email_masque, etape="password")
+            if len(mdp1) < 6:
+                flash("Le mot de passe doit comporter au moins 6 caractères.", "error")
+                return render_template("mot_de_passe_reset.html",
+                                       email_masque=email_masque, etape="password")
+            if mdp1 != mdp2:
+                flash("Les mots de passe ne correspondent pas.", "error")
+                return render_template("mot_de_passe_reset.html",
+                                       email_masque=email_masque, etape="password")
+
+            bd = get_bd()
+            u  = bd.charger_utilisateur_par_id(donnees["user_id"])
+            if u is None:
+                session.pop("reset_pending", None)
+                flash("Utilisateur introuvable.", "error")
+                return redirect(url_for("login"))
+
+            u.mot_de_passe = Authentification.hacher_mot_de_passe(mdp1)
+            bd.sauvegarder_utilisateur(u)
+            session.pop("reset_pending", None)
+            flash("Mot de passe mis à jour avec succès. Connectez-vous.", "success")
+            return redirect(url_for("login"))
+
+    etape = "password" if donnees.get("verified") else "otp"
+    return render_template("mot_de_passe_reset.html",
+                           email_masque=email_masque, etape=etape)
 
 
 # ── Dashboard ─────────────────────────────────────────────────────────────────────
@@ -890,20 +1045,30 @@ def planning():
 @login_required
 @admin_required
 def utilisateurs():
-    _, utilisateurs_dict, _, _ = get_data()
+    bd, utilisateurs_dict, _, _ = get_data()
     tous = list(utilisateurs_dict.values())
+
+    ecoles     = bd.charger_toutes_ecoles()
+    unites     = bd.charger_toutes_unites()
+    ecole_map  = {e.id: e for e in ecoles}
+    unite_map  = {u.id: u for u in unites}
 
     filtre_role   = request.args.get("role", "").strip()
     filtre_search = request.args.get("q", "").strip().lower()
+    filtre_ecole  = request.args.get("ecole", "").strip()
 
     resultats = tous
     if filtre_role:
         resultats = [u for u in resultats if u.role == filtre_role]
+    if filtre_ecole and filtre_ecole.isdigit():
+        eid = int(filtre_ecole)
+        resultats = [u for u in resultats if getattr(u, "ecole_id", None) == eid]
     if filtre_search:
         resultats = [u for u in resultats
                      if filtre_search in u.nom.lower()
                      or filtre_search in u.email.lower()
-                     or filtre_search in u.login.lower()]
+                     or filtre_search in u.login.lower()
+                     or filtre_search in getattr(u, "matricule", "").lower()]
 
     compteurs = {
         "tous":        len(tous),
@@ -917,7 +1082,11 @@ def utilisateurs():
                            utilisateurs=resultats,
                            filtre_role=filtre_role,
                            filtre_search=filtre_search,
-                           compteurs=compteurs)
+                           filtre_ecole=filtre_ecole,
+                           compteurs=compteurs,
+                           ecoles=ecoles,
+                           ecole_map=ecole_map,
+                           unite_map=unite_map)
 
 
 @app.route("/utilisateurs/inscrire", methods=["GET", "POST"])

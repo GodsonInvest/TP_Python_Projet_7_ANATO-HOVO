@@ -34,7 +34,7 @@
       ('admin',       'Admins',       'admin',       'bg-red-600 text-white',    'bg-red-50 text-red-700 hover:bg-red-100'),
     ] %}
     {% for val, label, cle, active_cls, inactive_cls in tabs %}
-    <a href="{{ url_for('utilisateurs', role=val, q=filtre_search) }}"
+    <a href="{{ url_for('utilisateurs', role=val, q=filtre_search, ecole=filtre_ecole) }}"
        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
          {% if filtre_role == val %}{{ active_cls }}{% else %}{{ inactive_cls }}{% endif %}">
       {{ label }}
@@ -48,9 +48,33 @@
   <!-- Séparateur vertical -->
   <div class="hidden sm:block w-px h-5 bg-slate-200"></div>
 
+  <!-- Filtre école -->
+  {% if ecoles %}
+  <form method="GET" action="{{ url_for('utilisateurs') }}" class="flex items-center gap-2">
+    <input type="hidden" name="role" value="{{ filtre_role }}"/>
+    <input type="hidden" name="q" value="{{ filtre_search }}"/>
+    <select name="ecole" onchange="this.form.submit()"
+      class="rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-600
+             focus:outline-none focus:ring-2 focus:ring-indigo-400 transition-all">
+      <option value="">Toutes les écoles</option>
+      {% for e in ecoles %}
+      <option value="{{ e.id }}" {% if filtre_ecole == e.id|string %}selected{% endif %}>
+        {{ e.abreviation or e.nom }}
+      </option>
+      {% endfor %}
+    </select>
+    {% if filtre_ecole %}
+    <a href="{{ url_for('utilisateurs', role=filtre_role, q=filtre_search) }}"
+       class="px-2 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 text-xs transition">✕</a>
+    {% endif %}
+  </form>
+  <div class="hidden sm:block w-px h-5 bg-slate-200"></div>
+  {% endif %}
+
   <!-- Recherche -->
   <form method="GET" action="{{ url_for('utilisateurs') }}" class="flex items-center gap-2 flex-1 min-w-48">
     <input type="hidden" name="role" value="{{ filtre_role }}"/>
+    <input type="hidden" name="ecole" value="{{ filtre_ecole }}"/>
     <div class="relative flex-1">
       <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none"
            fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -66,7 +90,7 @@
       OK
     </button>
     {% if filtre_search %}
-    <a href="{{ url_for('utilisateurs', role=filtre_role) }}"
+    <a href="{{ url_for('utilisateurs', role=filtre_role, ecole=filtre_ecole) }}"
        class="px-2.5 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 text-xs transition shrink-0">
       ✕
     </a>
@@ -85,7 +109,8 @@
           <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Utilisateur</th>
           <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Login</th>
           <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Rôle</th>
-          <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Détail</th>
+          <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Matricule</th>
+          <th class="px-6 py-3.5 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">École / Filière</th>
           <th class="px-6 py-3.5 text-right text-xs font-semibold text-slate-400 uppercase tracking-wide">Actions</th>
         </tr>
       </thead>
@@ -142,16 +167,50 @@
             {% endif %}
           </td>
 
-          <!-- Détail -->
-          <td class="px-6 py-4 text-slate-500 text-xs">
+          <!-- Matricule -->
+          <td class="px-6 py-4 text-xs">
             {% if u.role == 'etudiant' %}
-              <span class="font-mono">{{ u.matricule or '—' }}</span>
-              {% if u.classe %}<span class="mx-1 text-slate-300">·</span><span>{{ u.classe }}</span>{% endif %}
-            {% elif u.role == 'responsable' %}
-              Classe : <strong class="text-slate-600">{{ u.classe or '—' }}</strong>
+              <code class="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-md font-mono">
+                {{ u.matricule or '—' }}
+              </code>
+            {% else %}
+              <span class="text-slate-300">—</span>
+            {% endif %}
+          </td>
+
+          <!-- École / Filière / Détail -->
+          <td class="px-6 py-4 text-xs">
+            {% if u.role == 'etudiant' %}
+              <div class="space-y-1">
+                {% if u.ecole_id and ecole_map.get(u.ecole_id) %}
+                <div class="flex items-center gap-1.5">
+                  <svg class="w-3 h-3 text-slate-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l9-5-9-5-9 5 9 5z"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 14l6.16-3.422A12.083 12.083 0 0121 12.5V17a9 9 0 01-18 0v-4.5c0-.68.14-1.33.384-1.922L12 14z"/>
+                  </svg>
+                  <span class="text-slate-700 font-medium">{{ ecole_map[u.ecole_id].abreviation or ecole_map[u.ecole_id].nom }}</span>
+                </div>
+                {% endif %}
+                {% if u.unite_formation_id and unite_map.get(u.unite_formation_id) %}
+                  {% set unite = unite_map[u.unite_formation_id] %}
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700">
+                    {{ unite.niveau }}{% if unite.abreviation %} — {{ unite.abreviation }}{% endif %}
+                  </span>
+                {% elif u.classe %}
+                  <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-50 text-indigo-700">
+                    {{ u.classe }}
+                  </span>
+                {% endif %}
+              </div>
             {% elif u.role == 'enseignant' %}
-              {{ u.matiere or '—' }}
-            {% else %}—{% endif %}
+              <span class="text-slate-600 font-medium">{{ u.matiere or '—' }}</span>
+            {% elif u.role == 'responsable' %}
+              <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700">
+                {{ u.classe or '—' }}
+              </span>
+            {% else %}
+              <span class="text-slate-300">—</span>
+            {% endif %}
           </td>
 
           <!-- Actions -->
@@ -220,6 +279,7 @@
       <p class="text-slate-500 font-semibold text-sm mb-1">Aucun résultat</p>
       <p class="text-slate-400 text-xs mb-4">Essayez un autre filtre ou terme de recherche.</p>
       <a href="{{ url_for('utilisateurs') }}" class="btn-secondary text-xs">Réinitialiser les filtres</a>
+
     {% else %}
       <svg class="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>

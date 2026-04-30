@@ -74,9 +74,11 @@ TP_Python_Projet_7_ANATO&HOVO/
     │
     ├── templates/                          # Interface web Jinja2 + Tailwind CSS
     │   ├── base.html                       # Layout commun (nav, flash messages)
-    │   ├── login.html                      # Connexion
+    │   ├── login.html                      # Connexion (lien "Mot de passe oublié ?")
     │   ├── inscription.html                # Inscription étudiant/enseignant + OTP
-    │   ├── otp_verification.html           # Vérification code OTP
+    │   ├── otp_verification.html           # Vérification code OTP (inscription)
+    │   ├── mot_de_passe_oublie.html        # Saisie email pour reset mot de passe
+    │   ├── mot_de_passe_reset.html         # OTP reset + formulaire nouveau mot de passe
     │   ├── dashboard.html                  # Tableau de bord
     │   ├── salles.html                     # Liste des salles
     │   ├── salle_form.html                 # Ajout/modification salle
@@ -222,7 +224,10 @@ Un **bouton de test** permet d'envoyer un email de vérification à n'importe qu
 
 - Tableau de bord avec statistiques globales (salles, réservations, utilisateurs, écoles)
 - Gestion complète des **salles** (ajout, modification, suppression, équipements)
-- Gestion complète des **utilisateurs** (liste, ajout, modification de rôle, suppression)
+- Gestion complète des **utilisateurs** avec tableau détaillé :
+  - Colonnes : nom, email, login, rôle, **matricule**, **école**, **filière/niveau** pour chaque étudiant
+  - Filtre par rôle (onglets), filtre par **école** (menu déroulant), recherche textuelle
+  - Ajout, modification de rôle, suppression d'utilisateurs
 - Attribution / révocation du rôle **Responsable de promotion** (via bouton dédié)
 - Gestion des **écoles / facultés** et de leurs **filières/niveaux** (L1→M2)
 - Page **Paramètres** (accessible uniquement à l'admin) avec :
@@ -260,6 +265,10 @@ Un **bouton de test** permet d'envoyer un email de vérification à n'importe qu
 ### Tous les rôles
 
 - Authentification sécurisée (SHA-256 + comparaison timing-safe)
+- **Réinitialisation de mot de passe oublié** par email :
+  - Lien "Mot de passe oublié ?" sur la page de connexion
+  - Saisie de l'email → réception d'un code OTP à 6 chiffres (valable 10 minutes)
+  - Vérification du code (5 tentatives max) → formulaire de nouveau mot de passe
 - Réception automatique de **notifications email HTML** lors d'une réservation ou annulation concernant leur filière
 - Consultation des salles et de leurs équipements
 - Vue du planning filtrable par date, salle ou classe
