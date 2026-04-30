@@ -178,22 +178,31 @@ L'application est accessible à l'adresse : `http://127.0.0.1:5000`
 
 | Login | Mot de passe |
 |-------|-------------|
-| `admin` | `admin123` |
+| `admin` | `Admin@123` |
 
-> Pensez à changer le mot de passe et l'email admin depuis **Paramètres** après la première connexion.
+> Après la première connexion, rendez-vous dans **Paramètres** pour mettre à jour l'email admin et configurer le serveur SMTP.
 
-### Configuration SMTP (notifications email)
+### Page Paramètres (admin uniquement)
 
-Depuis le panneau **Paramètres** (accessible uniquement à l'admin) :
+La page **Paramètres** regroupe deux sections :
+
+**1. Email du compte administrateur**
+
+Permet de modifier l'adresse email de l'administrateur. Un mot de passe est requis pour confirmer la modification.
+
+**2. Configuration SMTP** (pour les notifications email et les OTP d'inscription)
 
 | Champ | Valeur Gmail recommandée |
 |-------|--------------------------|
 | Hôte SMTP | `smtp.gmail.com` |
 | Port | `587` |
 | Email expéditeur | `votre.adresse@gmail.com` |
+| Nom d'affichage | `UniRéserv — Université` |
 | Mot de passe | Clé d'application Google (16 caractères) |
 
 > Pour générer une clé d'application Google : **Compte Google → Sécurité → Vérification en 2 étapes → Mots de passe des applications**.
+
+Un **bouton de test** permet d'envoyer un email de vérification à n'importe quelle adresse pour valider la configuration avant usage.
 
 ### Déploiement sur Render.com
 
@@ -211,16 +220,20 @@ Depuis le panneau **Paramètres** (accessible uniquement à l'admin) :
 
 ### Administrateur
 
-- Tableau de bord avec statistiques globales (salles, réservations, utilisateurs)
+- Tableau de bord avec statistiques globales (salles, réservations, utilisateurs, écoles)
 - Gestion complète des **salles** (ajout, modification, suppression, équipements)
 - Gestion complète des **utilisateurs** (liste, ajout, modification de rôle, suppression)
-- Attribution / révocation du rôle **Responsable de promotion**
+- Attribution / révocation du rôle **Responsable de promotion** (via bouton dédié)
 - Gestion des **écoles / facultés** et de leurs **filières/niveaux** (L1→M2)
-- Configuration **SMTP** pour les notifications email
-- Modification de son **email** administrateur (avec confirmation du mot de passe)
-- Envoi d'un **email de test** pour valider la configuration SMTP
-- Export CSV des réservations
+- Page **Paramètres** (accessible uniquement à l'admin) avec :
+  - Affichage et **modification de l'email** du compte admin (confirmation par mot de passe actuel)
+  - Configuration complète du serveur **SMTP** (hôte, port, compte, nom d'affichage, mot de passe)
+  - Indicateurs visuels de statut SMTP (configuré / non configuré)
+  - **Email de test** pour valider la configuration SMTP avant usage
+- Création de réservations avec **sélection de l'école et des filières/niveaux** à notifier
+- Export **CSV** de toutes les réservations
 - Accès à toutes les réservations et au planning global
+- Suppression de n'importe quelle réservation
 
 ### Responsable de promotion
 
