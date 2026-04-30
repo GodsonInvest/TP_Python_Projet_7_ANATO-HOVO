@@ -1,4 +1,4 @@
-# UniRéserv — Système de Gestion de Réservation de Salles Universitaires
+﻿# UniRéserv — Système de Gestion de Réservation de Salles Universitaires
 
 > Projet académique Python (TP Projet 7) — ANATO Amen Godson Cossi & HOVO  
 > Application web complète de réservation de salles pour un établissement universitaire.
@@ -84,7 +84,7 @@ TP_Python_Projet_7_ANATO&HOVO/
     │   ├── salle_form.html                 # Ajout/modification salle
     │   ├── salle_detail.html               # Détail salle + planning
     │   ├── reservations.html               # Liste des réservations
-    │   ├── reservation_form.html           # Nouvelle réservation (école → filières)
+    │   ├── reservation_form.html           # Nouvelle réservation (école → filières → enseignant → matière)
     │   ├── reservation_modifier.html       # Modification réservation
     │   ├── planning.html                   # Vue planning globale
     │   ├── utilisateurs.html               # Gestion utilisateurs (admin)
@@ -235,7 +235,7 @@ Un **bouton de test** permet d'envoyer un email de vérification à n'importe qu
   - Configuration complète du serveur **SMTP** (hôte, port, compte, nom d'affichage, mot de passe)
   - Indicateurs visuels de statut SMTP (configuré / non configuré)
   - **Email de test** pour valider la configuration SMTP avant usage
-- Création de réservations avec **sélection de l'école et des filières/niveaux** à notifier
+- Création de réservations avec **sélection de l'école, des filières/niveaux, de l'enseignant et de sa matière** à notifier
 - Export **CSV** de toutes les réservations
 - Accès à toutes les réservations et au planning global
 - Suppression de n'importe quelle réservation
@@ -243,7 +243,7 @@ Un **bouton de test** permet d'envoyer un email de vérification à n'importe qu
 ### Responsable de promotion
 
 - Tableau de bord avec ses réservations en cours
-- Création de réservations avec **sélection de l'école et des filières/niveaux** concernés
+- Création de réservations avec **sélection de l'école, des filières/niveaux, de l'enseignant et de la matière** concernés
 - Modification et annulation de ses propres réservations
 - Vue planning de sa salle et de sa classe
 - Sa classe est pré-sélectionnée lors de la création d'une réservation
@@ -251,8 +251,8 @@ Un **bouton de test** permet d'envoyer un email de vérification à n'importe qu
 ### Enseignant
 
 - Tableau de bord personnel
-- Création, modification et annulation de réservations
-- Sélection de l'école et des filières à notifier
+- **Plusieurs matières enseignées** : ajout/suppression depuis le profil ou lors de l'inscription
+- Réception d'une **notification email** lorsqu'une réservation le désigne comme enseignant du cours
 - Vue du planning global
 
 ### Étudiant
@@ -384,7 +384,7 @@ tests/test_gestion_reservation.py  33 passed
 ┌─────────────────────────────────────────┐
 │  [ capture : reservation_form.png ]     │
 │  Sélection salle, école, filières,      │
-│  date et horaires                       │
+│  enseignant, matière, date et horaires  │
 └─────────────────────────────────────────┘
 ```
 ![Réservation](screenshots/reservation_form.png)
