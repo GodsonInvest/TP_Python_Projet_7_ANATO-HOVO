@@ -176,9 +176,9 @@ L'application est accessible à l'adresse : `http://127.0.0.1:5000`
 
 ### Compte administrateur par défaut
 
-| Login | Mot de passe |
-|-------|-------------|
-| `admin` | `Admin@123` |
+| Login | Mot de passe | email |
+|-------|-------------|--------|
+| `admin` | `Admin@123` | `godsoninvest@gmail.com`|
 
 > Après la première connexion, rendez-vous dans **Paramètres** pour mettre à jour l'email admin et configurer le serveur SMTP.
 
@@ -196,7 +196,7 @@ Permet de modifier l'adresse email de l'administrateur. Un mot de passe est requ
 |-------|--------------------------|
 | Hôte SMTP | `smtp.gmail.com` |
 | Port | `587` |
-| Email expéditeur | `votre.adresse@gmail.com` |
+| Email expéditeur | `godsoninvest@gmail.com` |
 | Nom d'affichage | `UniRéserv — Université` |
 | Mot de passe | Clé d'application Google (16 caractères) |
 
