@@ -2,6 +2,7 @@
 
 > Projet académique Python (TP Projet 7) — ANATO Amen Godson Cossi & HOVO  
 > Application web complète de réservation de salles pour un établissement universitaire.
+> 📄 [Cahier des charges (Notion)](https://www.notion.so/Cahier-des-Charges-Mis-Jour-34854b47378080c4915ac273609da4d2)
 
 ---
 
