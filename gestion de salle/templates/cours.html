@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Cours{% endblock %}
+{% block heading %}Cours planifiés{% endblock %}
+
+{% block content %}
+
+{# ── Barre outils ── #}
+<div class="flex items-center justify-between mb-5">
+  <p class="text-sm text-slate-500">
+    {{ cours_liste|length }} cours enregistré{{ 's' if cours_liste|length != 1 else '' }}
+  </p>
+  <a href="{{ url_for('cours_nouveau') }}" class="btn-primary">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+    </svg>
+    Nouveau cours
+  </a>
+</div>
+
+{# ── État vide ── #}
+{% if not cours_liste %}
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm px-8 py-14 text-center">
+  <div class="w-14 h-14 rounded-2xl bg-indigo-50 flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-indigo-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
+    </svg>
+  </div>
+  <p class="text-slate-700 font-semibold mb-1">Aucun cours planifié</p>
+  <p class="text-slate-400 text-sm mb-5">Créez votre premier cours pour générer automatiquement toutes les séances.</p>
+  <a href="{{ url_for('cours_nouveau') }}" class="btn-primary inline-flex">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+    </svg>
+    Nouveau cours
+  </a>
+</div>
+{% endif %}
+
+{# ── Liste des cours ── #}
+<div class="space-y-4">
+{% for cours in cours_liste %}
+  {% set actif = cours.date_fin >= today %}
+  {% set enseignant = utilisateurs.get(cours.enseignant_id) %}
+
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+
+    {# En-tête de la carte #}
+    <div class="px-6 py-4 flex flex-wrap items-start justify-between gap-3">
+      <div class="flex items-start gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
+          {{ 'bg-indigo-100' if actif else 'bg-slate-100' }}">
+          <svg class="w-5 h-5 {{ 'text-indigo-600' if actif else 'text-slate-400' }}"
+            fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2 mb-0.5">
+            <span class="text-base font-semibold text-slate-800 truncate">
+              {{ cours.matiere or 'Sans matière' }}
+            </span>
+            {% if actif %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block"></span>
+              Actif
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500 border border-slate-200">
+              <span class="w-1.5 h-1.5 rounded-full bg-slate-400 inline-block"></span>
+              Terminé
+            </span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-slate-500">
+            {% if enseignant %}
+              <span class="font-medium text-slate-700">{{ enseignant.nom }}</span> ·
+            {% endif %}
+            <span class="font-medium text-indigo-600">{{ format_classe(cours.classe) }}</span>
+          </p>
+        </div>
+      </div>
+
+      {# Période #}
+      <div class="text-right shrink-0">
+        <p class="text-xs text-slate-400 mb-0.5">Période</p>
+        <p class="text-sm font-medium text-slate-700">
+          {{ cours.date_debut }} → {{ cours.date_fin }}
+        </p>
+      </div>
+    </div>
+
+    {# Planning hebdomadaire #}
+    {% if cours.jours %}
+    <div class="border-t border-slate-100 px-6 py-3">
+      <p class="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">Planning hebdomadaire</p>
+      <div class="flex flex-wrap gap-2">
+        {% set ORDRE_JOURS = ['lundi','mardi','mercredi','jeudi','vendredi','samedi','dimanche'] %}
+        {# affichage dans l'ordre lun→dim #}
+        {% for jour_nom in ORDRE_JOURS %}
+          {% for j in cours.jours if j.jour_semaine == jour_nom %}
+            {% set salle = salles_dict.get(j.salle_id) %}
+            <div class="flex items-center gap-2 px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-sm">
+              <span class="w-6 h-6 rounded-md bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center uppercase shrink-0">
+                {{ j.jour_semaine[:2] }}
+              </span>
+              <div class="leading-tight">
+                <p class="font-medium text-slate-700">{{ j.heure_debut }}–{{ j.heure_fin }}</p>
+                <p class="text-xs text-slate-400">{{ salle.nom if salle else 'Salle #' ~ j.salle_id }}</p>
+              </div>
+            </div>
+          {% endfor %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Pied de carte : actions #}
+    <div class="border-t border-slate-100 px-6 py-3 flex items-center justify-between bg-slate-50/50">
+      <p class="text-xs text-slate-400">
+        ID cours #{{ cours.id }}
+        {% set createur = utilisateurs.get(cours.created_by) %}
+        {% if createur %} · créé par {{ createur.nom }}{% endif %}
+      </p>
+
+      {% if actif %}
+      <form method="POST" action="{{ url_for('cours_annuler', cours_id=cours.id) }}"
+        onsubmit="return confirm('Annuler toutes les séances futures de ce cours ?')">
+        <button type="submit"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+            bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+          </svg>
+          Annuler les séances futures
+        </button>
+      </form>
+      {% else %}
+      <span class="text-xs text-slate-400 italic">Aucune séance future</span>
+      {% endif %}
+    </div>
+
+  </div>
+{% endfor %}
+</div>
+
+{% endblock %}

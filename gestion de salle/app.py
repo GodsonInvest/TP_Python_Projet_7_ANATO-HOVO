@@ -1569,6 +1569,212 @@ def filieres_supprimer(ecole_id):
     return redirect(url_for("ecoles"))
 
 
+# ── Cours multi-jours ────────────────────────────────────────────────────────────────
+
+def _parser_cours_form(form, salles_dict):
+    """Parse le formulaire cours. Retourne (cours_data, erreur|None)."""
+    unites_cb = form.getlist("unites")
+    classe    = ",".join(unites_cb) if unites_cb else form.get("classe", "").strip()
+    matiere       = form.get("matiere", "").strip()
+    ens_id_str    = form.get("enseignant_id", "").strip()
+    enseignant_id = int(ens_id_str) if ens_id_str.isdigit() else None
+    date_debut_str = form.get("date_debut", "").strip()
+    date_fin_str   = form.get("date_fin", "").strip()
+
+    if not all([classe, date_debut_str, date_fin_str]):
+        return None, "Classe et période obligatoires."
+    try:
+        date_debut = date.fromisoformat(date_debut_str)
+        date_fin   = date.fromisoformat(date_fin_str)
+    except ValueError:
+        return None, "Dates invalides."
+    if date_debut >= date_fin:
+        return None, "La date de fin doit être après la date de début."
+
+    JOURS_NOMS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi"]
+    jours_config = []
+    for jour in JOURS_NOMS:
+        if form.get(f"jour_{jour}"):
+            sid  = form.get(f"salle_{jour}", "")
+            hdeb = form.get(f"debut_{jour}", "")
+            hfin = form.get(f"fin_{jour}", "")
+            if sid.isdigit() and hdeb and hfin:
+                try:
+                    jours_config.append({
+                        "jour": jour,
+                        "salle_id": int(sid),
+                        "heure_debut": dtime.fromisoformat(hdeb),
+                        "heure_fin":   dtime.fromisoformat(hfin),
+                    })
+                except ValueError:
+                    pass
+
+    if not jours_config:
+        return None, "Au moins un jour doit être configuré avec salle et horaires."
+
+    return {
+        "enseignant_id": enseignant_id,
+        "classe":        classe,
+        "matiere":       matiere,
+        "date_debut":    date_debut,
+        "date_fin":      date_fin,
+        "jours":         jours_config,
+    }, None
+
+
+@app.route("/cours")
+@login_required
+def cours_liste():
+    if not peut_gerer_reservations():
+        flash("Accès réservé aux responsables et administrateurs.", "error")
+        return redirect(url_for("dashboard"))
+    bd, utilisateurs, salles_dict, _ = get_data()
+    tous_cours = bd.charger_tous_cours()
+    return render_template(
+        "cours.html", active="cours",
+        cours_liste=tous_cours,
+        utilisateurs=utilisateurs,
+        salles_dict=salles_dict,
+        today=date.today().isoformat(),
+    )
+
+
+@app.route("/cours/nouveau", methods=["GET", "POST"])
+@login_required
+def cours_nouveau():
+    if not peut_gerer_reservations():
+        flash("Accès réservé aux responsables et administrateurs.", "error")
+        return redirect(url_for("dashboard"))
+
+    bd, utilisateurs, salles_dict, reservations_existantes = get_data()
+    ecoles  = bd.charger_toutes_ecoles()
+    unites  = bd.charger_toutes_unites()
+    groupes = {}
+    for u in unites:
+        groupes.setdefault(u.ecole_id, []).append(u)
+    ecoles_filieres = [
+        {"ecole": e, "unites": sorted(groupes.get(e.id, []), key=lambda x: (x.nom, x.niveau))}
+        for e in ecoles if groupes.get(e.id)
+    ]
+    unites_json = json.dumps([u.to_dict() for u in unites])
+    enseignants = [u for u in utilisateurs.values() if isinstance(u, Enseignant)]
+    enseignants_json = json.dumps([
+        {"id": e.id, "nom": e.nom, "matieres": e.matieres}
+        for e in sorted(enseignants, key=lambda x: x.nom)
+    ])
+
+    if request.method == "POST":
+        cours_data, erreur = _parser_cours_form(request.form, salles_dict)
+        if erreur:
+            flash(erreur, "error")
+        else:
+            ignorer    = request.form.get("ignorer_conflits") == "1"
+            responsable = utilisateurs.get(session["user_id"])
+            gr = GestionReservation()
+            gr._GestionReservation__reservations = list(reservations_existantes)
+            conflits, reservations_creees = gr.creer_cours(
+                cours_data, salles_dict, responsable, ignorer_conflits=ignorer
+            )
+            if conflits:
+                flash(
+                    f"{len(conflits)} conflit(s) détecté(s). "
+                    "Vérifiez les dates ou cochez « Ignorer les conflits ».",
+                    "error",
+                )
+            else:
+                cours_db = {
+                    "id":            None,
+                    "enseignant_id": cours_data["enseignant_id"],
+                    "classe":        cours_data["classe"],
+                    "matiere":       cours_data["matiere"],
+                    "date_debut":    cours_data["date_debut"].isoformat(),
+                    "date_fin":      cours_data["date_fin"].isoformat(),
+                    "created_by":    session["user_id"],
+                    "created_at":    datetime.now().isoformat(),
+                    "jours": [
+                        {
+                            "jour_semaine": j["jour"],
+                            "salle_id":    j["salle_id"],
+                            "heure_debut": j["heure_debut"].strftime("%H:%M"),
+                            "heure_fin":   j["heure_fin"].strftime("%H:%M"),
+                        }
+                        for j in cours_data["jours"]
+                    ],
+                }
+                cours_id = bd.sauvegarder_cours(cours_db)
+                for r in reservations_creees:
+                    r.cours_id = cours_id
+                    bd.sauvegarder_reservation(r)
+                flash(
+                    f"Cours créé — {len(reservations_creees)} séance(s) planifiée(s).",
+                    "success",
+                )
+                return redirect(url_for("cours_liste"))
+
+    u_courant    = utilisateurs.get(session["user_id"])
+    pre_classe   = getattr(u_courant, "classe", "") or ""
+    pre_ecole_id = getattr(u_courant, "ecole_id", None)
+    return render_template(
+        "cours_form.html", active="cours",
+        salles=list(salles_dict.values()),
+        ecoles_filieres=ecoles_filieres,
+        unites_json=unites_json,
+        enseignants_json=enseignants_json,
+        pre_classe=pre_classe,
+        pre_ecole_id=pre_ecole_id,
+        user_role=session.get("user_role"),
+        today=date.today().isoformat(),
+    )
+
+
+@app.route("/cours/verifier-conflits", methods=["POST"])
+@login_required
+def cours_verifier_conflits():
+    bd, utilisateurs, salles_dict, reservations_existantes = get_data()
+    cours_data, erreur = _parser_cours_form(request.form, salles_dict)
+    if erreur:
+        return Response(json.dumps({"erreur": erreur}), content_type="application/json"), 400
+    responsable = utilisateurs.get(session["user_id"])
+    gr = GestionReservation()
+    gr._GestionReservation__reservations = list(reservations_existantes)
+    conflits, _ = gr.creer_cours(cours_data, salles_dict, responsable, ignorer_conflits=False)
+    return Response(json.dumps({
+        "nb_conflits": len(conflits),
+        "conflits": [
+            {
+                "date":                c["date"].strftime("%d/%m/%Y"),
+                "jour":                c["jour"].capitalize(),
+                "salle":               c["salle"].nom,
+                "heure_debut":         c["heure_debut"].strftime("%H:%M"),
+                "heure_fin":           c["heure_fin"].strftime("%H:%M"),
+                "conflit_avec_id":     c["conflit_avec_id"],
+                "conflit_avec_classe": c["conflit_avec_classe"],
+            }
+            for c in conflits
+        ],
+    }), content_type="application/json")
+
+
+@app.route("/cours/<int:cours_id>/annuler", methods=["POST"])
+@login_required
+def cours_annuler(cours_id):
+    if not peut_gerer_reservations():
+        flash("Accès réservé.", "error")
+        return redirect(url_for("dashboard"))
+    bd, utilisateurs, salles_dict, reservations_existantes = get_data()
+    cours = bd.charger_cours_par_id(cours_id)
+    if not cours:
+        flash("Cours introuvable.", "error")
+        return redirect(url_for("cours_liste"))
+    gr = GestionReservation()
+    gr._GestionReservation__reservations = list(reservations_existantes)
+    annulees = gr.annuler_cours(cours_id)
+    for r in annulees:
+        bd.sauvegarder_reservation(r)
+    flash(f"{len(annulees)} séance(s) future(s) annulée(s).", "success")
+    return redirect(url_for("cours_liste"))
+
+
 @app.errorhandler(404)
 def page_non_trouvee(e):
     return render_template("404.html"), 404

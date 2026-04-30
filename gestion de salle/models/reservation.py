@@ -23,6 +23,7 @@ class Reservation:
         heure_fin: time,
         matiere: str = "",
         enseignant_id: int = None,
+        cours_id: int = None,
     ):
         Reservation._compteur += 1
         self.__id: int = Reservation._compteur
@@ -34,6 +35,7 @@ class Reservation:
         self.__heure_fin: time = heure_fin
         self.__matiere: str = matiere
         self.__enseignant_id: int = enseignant_id
+        self.__cours_id: int = cours_id
         self.__statut: StatutReservation = StatutReservation.EN_ATTENTE
         self.__date_creation: datetime = datetime.now()
         self._valider_horaires()
@@ -90,6 +92,14 @@ class Reservation:
         self.__enseignant_id = v
 
     @property
+    def cours_id(self) -> int:
+        return self.__cours_id
+
+    @cours_id.setter
+    def cours_id(self, v: int):
+        self.__cours_id = v
+
+    @property
     def statut(self) -> StatutReservation:
         return self.__statut
 
@@ -140,6 +150,7 @@ class Reservation:
             "heure_fin": self.__heure_fin.strftime("%H:%M"),
             "matiere": self.__matiere,
             "enseignant_id": self.__enseignant_id,
+            "cours_id": self.__cours_id,
             "statut": self.__statut.value,
             "date_creation": self.__date_creation.isoformat(),
         }

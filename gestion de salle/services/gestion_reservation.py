@@ -1,8 +1,13 @@
-from datetime import date, time
+from datetime import date, time, timedelta
 from typing import Optional
 from models.reservation import Reservation, StatutReservation
 from models.salle import Salle
 from models.utilisateur import Responsable
+
+JOURS_SEMAINE = {
+    'lundi': 0, 'mardi': 1, 'mercredi': 2,
+    'jeudi': 3, 'vendredi': 4, 'samedi': 5, 'dimanche': 6,
+}
 
 
 class GestionReservation:
@@ -119,6 +124,94 @@ class GestionReservation:
             if r.id == reservation_id:
                 return r
         return None
+
+    def _conflit_direct(self, salle_id: int, d: date, debut: time, fin: time) -> Optional[Reservation]:
+        """Vérifie un conflit sans créer d'objet Reservation (ne modifie pas le compteur)."""
+        for existante in self.__reservations:
+            if existante.statut not in (StatutReservation.CONFIRMEE, StatutReservation.EN_ATTENTE):
+                continue
+            if existante.salle.id != salle_id:
+                continue
+            if existante.date != d:
+                continue
+            if debut < existante.heure_fin and fin > existante.heure_debut:
+                return existante
+        return None
+
+    def creer_cours(
+        self,
+        cours_data: dict,
+        salles_dict: dict,
+        responsable,
+        ignorer_conflits: bool = False,
+    ):
+        """
+        cours_data = {
+            enseignant_id, classe, matiere, date_debut (date), date_fin (date),
+            jours: [{'jour': str, 'salle_id': int, 'heure_debut': time, 'heure_fin': time}]
+        }
+        Retourne (conflits: list[dict], reservations_creees: list[Reservation]).
+        Si conflits et ignorer_conflits=False → retourne les conflits sans rien créer.
+        Si ignorer_conflits=True → crée les occurrences non-conflictuelles.
+        """
+        occurrences = []
+        for config in cours_data['jours']:
+            salle = salles_dict.get(config['salle_id'])
+            if not salle:
+                continue
+            num = JOURS_SEMAINE.get(config['jour'], -1)
+            if num < 0:
+                continue
+            d = cours_data['date_debut']
+            delta = (num - d.weekday()) % 7
+            d = d + timedelta(days=delta)
+            while d <= cours_data['date_fin']:
+                occurrences.append({
+                    'date': d, 'salle': salle, 'jour': config['jour'],
+                    'heure_debut': config['heure_debut'], 'heure_fin': config['heure_fin'],
+                })
+                d += timedelta(weeks=1)
+
+        conflits = []
+        for occ in occurrences:
+            c = self._conflit_direct(occ['salle'].id, occ['date'], occ['heure_debut'], occ['heure_fin'])
+            if c:
+                conflits.append({
+                    'date': occ['date'], 'jour': occ['jour'], 'salle': occ['salle'],
+                    'heure_debut': occ['heure_debut'], 'heure_fin': occ['heure_fin'],
+                    'conflit_avec_id': c.id, 'conflit_avec_classe': c.classe,
+                })
+
+        if conflits and not ignorer_conflits:
+            return conflits, []
+
+        reservations_creees = []
+        for occ in occurrences:
+            if self._conflit_direct(occ['salle'].id, occ['date'], occ['heure_debut'], occ['heure_fin']):
+                continue
+            r = Reservation(
+                salle=occ['salle'], responsable=responsable, classe=cours_data['classe'],
+                date_reservation=occ['date'],
+                heure_debut=occ['heure_debut'], heure_fin=occ['heure_fin'],
+                matiere=cours_data.get('matiere', ''),
+                enseignant_id=cours_data.get('enseignant_id'),
+            )
+            r.confirmer()
+            self.__reservations.append(r)
+            reservations_creees.append(r)
+
+        return [], reservations_creees
+
+    def annuler_cours(self, cours_id: int) -> list:
+        """Annule toutes les occurrences futures liées à ce cours_id."""
+        aujourd_hui = date.today()
+        annulees = []
+        for r in self.__reservations:
+            if r.cours_id == cours_id and r.date >= aujourd_hui:
+                if r.statut not in (StatutReservation.ANNULEE, StatutReservation.TERMINEE):
+                    r.annuler()
+                    annulees.append(r)
+        return annulees
 
     @property
     def toutes_les_reservations(self) -> list[Reservation]:

@@ -105,6 +105,27 @@ class BaseDonneesSQLite:
             cle    TEXT PRIMARY KEY,
             valeur TEXT NOT NULL DEFAULT ''
         );
+
+        CREATE TABLE IF NOT EXISTS reservation_cours (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            enseignant_id   INTEGER,
+            classe          TEXT    NOT NULL DEFAULT '',
+            matiere         TEXT    NOT NULL DEFAULT '',
+            date_debut      TEXT    NOT NULL,
+            date_fin        TEXT    NOT NULL,
+            created_by      INTEGER NOT NULL,
+            created_at      TEXT    NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS reservation_cours_jours (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            cours_id        INTEGER NOT NULL,
+            jour_semaine    TEXT    NOT NULL,
+            salle_id        INTEGER NOT NULL,
+            heure_debut     TEXT    NOT NULL,
+            heure_fin       TEXT    NOT NULL,
+            FOREIGN KEY (cours_id) REFERENCES reservation_cours(id) ON DELETE CASCADE
+        );
         """
         with self._connexion() as conn:
             conn.executescript(ddl)
@@ -118,6 +139,7 @@ class BaseDonneesSQLite:
             ("ecoles",          "abreviation",         "TEXT NOT NULL DEFAULT ''"),
             ("unites_formation","abreviation",         "TEXT NOT NULL DEFAULT ''"),
             ("reservations",    "enseignant_id",       "INTEGER"),
+            ("reservations",    "cours_id",            "INTEGER"),
         ]
         with self._connexion() as conn:
             for table, col, typ in migrations:
@@ -262,15 +284,15 @@ class BaseDonneesSQLite:
         params = (
             d["salle_id"], d["responsable_id"], d["classe"],
             d["date"], d["heure_debut"], d["heure_fin"],
-            d["matiere"], d.get("enseignant_id"), d["statut"], d["date_creation"],
+            d["matiere"], d.get("enseignant_id"), d.get("cours_id"), d["statut"], d["date_creation"],
         )
         with self._connexion() as conn:
             try:
                 conn.execute(
                     "INSERT INTO reservations "
                     "(id, salle_id, responsable_id, classe, date, "
-                    " heure_debut, heure_fin, matiere, enseignant_id, statut, date_creation) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?)",
+                    " heure_debut, heure_fin, matiere, enseignant_id, cours_id, statut, date_creation) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
                     (d["id"], *params),
                 )
             except sqlite3.IntegrityError:
@@ -278,7 +300,7 @@ class BaseDonneesSQLite:
                     "UPDATE reservations "
                     "SET salle_id=?, responsable_id=?, classe=?, date=?, "
                     "    heure_debut=?, heure_fin=?, matiere=?, enseignant_id=?, "
-                    "    statut=?, date_creation=? "
+                    "    cours_id=?, statut=?, date_creation=? "
                     "WHERE id=?",
                     (*params, d["id"]),
                 )
@@ -311,7 +333,8 @@ class BaseDonneesSQLite:
                 f"salle_id={row['salle_id']}, responsable_id={row['responsable_id']}"
             )
         keys = row.keys()
-        ens_id = row["enseignant_id"] if "enseignant_id" in keys else None
+        ens_id   = row["enseignant_id"] if "enseignant_id" in keys else None
+        cours_id = row["cours_id"]      if "cours_id"      in keys else None
         r = Reservation(
             salle=salle, responsable=responsable, classe=row["classe"],
             date_reservation=date.fromisoformat(row["date"]),
@@ -319,6 +342,7 @@ class BaseDonneesSQLite:
             heure_fin=time.fromisoformat(row["heure_fin"]),
             matiere=row["matiere"] or "",
             enseignant_id=ens_id,
+            cours_id=cours_id,
         )
         r.id = row["id"]
         # name-mangling : pas de setter public pour statut ni date_creation
@@ -463,6 +487,79 @@ class BaseDonneesSQLite:
         u = UniteFormation(row["nom"], row["niveau"], row["ecole_id"], abr)
         u.id = row["id"]
         return u
+
+    # ── Cours multi-jours ─────────────────────────────────────────────────────────
+
+    def sauvegarder_cours(self, cours: dict) -> int:
+        jours = cours.get("jours", [])
+        params = (
+            cours.get("enseignant_id"),
+            cours.get("classe", ""),
+            cours.get("matiere", ""),
+            cours.get("date_debut", ""),
+            cours.get("date_fin", ""),
+            cours.get("created_by"),
+            cours.get("created_at", ""),
+        )
+        with self._connexion() as conn:
+            if cours.get("id") is None:
+                cur = conn.execute(
+                    "INSERT INTO reservation_cours "
+                    "(enseignant_id, classe, matiere, date_debut, date_fin, created_by, created_at) "
+                    "VALUES (?,?,?,?,?,?,?)",
+                    params,
+                )
+                cours["id"] = cur.lastrowid
+            else:
+                conn.execute(
+                    "UPDATE reservation_cours "
+                    "SET enseignant_id=?, classe=?, matiere=?, date_debut=?, date_fin=?, "
+                    "    created_by=?, created_at=? WHERE id=?",
+                    (*params, cours["id"]),
+                )
+                conn.execute("DELETE FROM reservation_cours_jours WHERE cours_id=?", (cours["id"],))
+            for j in jours:
+                conn.execute(
+                    "INSERT INTO reservation_cours_jours "
+                    "(cours_id, jour_semaine, salle_id, heure_debut, heure_fin) "
+                    "VALUES (?,?,?,?,?)",
+                    (cours["id"], j["jour_semaine"], j["salle_id"], j["heure_debut"], j["heure_fin"]),
+                )
+        return cours["id"]
+
+    def charger_cours_par_id(self, cours_id: int) -> Optional[dict]:
+        with self._connexion() as conn:
+            row = conn.execute("SELECT * FROM reservation_cours WHERE id=?", (cours_id,)).fetchone()
+            if not row:
+                return None
+            c = dict(row)
+            jours = conn.execute(
+                "SELECT * FROM reservation_cours_jours WHERE cours_id=? ORDER BY id",
+                (cours_id,),
+            ).fetchall()
+            c["jours"] = [dict(j) for j in jours]
+        return c
+
+    def charger_tous_cours(self) -> list:
+        with self._connexion() as conn:
+            rows = conn.execute(
+                "SELECT * FROM reservation_cours ORDER BY date_debut DESC"
+            ).fetchall()
+            result = []
+            for row in rows:
+                c = dict(row)
+                jours = conn.execute(
+                    "SELECT * FROM reservation_cours_jours WHERE cours_id=? ORDER BY id",
+                    (c["id"],),
+                ).fetchall()
+                c["jours"] = [dict(j) for j in jours]
+                result.append(c)
+        return result
+
+    def supprimer_cours(self, cours_id: int) -> bool:
+        with self._connexion() as conn:
+            cur = conn.execute("DELETE FROM reservation_cours WHERE id=?", (cours_id,))
+        return cur.rowcount > 0
 
     # ── Configuration SMTP ────────────────────────────────────────────────────────
 
