@@ -9,16 +9,16 @@
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm px-5 py-3 flex items-center justify-between gap-4">
 
     <div class="flex items-center gap-3">
-      <a href="{{ url_for('planning', debut=prev_semaine) }}"
+      <a href="{{ url_for('planning', debut=prev_semaine, type=filtre_type) }}"
          class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-medium transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
         Semaine préc.
       </a>
-      <a href="{{ url_for('planning') }}"
+      <a href="{{ url_for('planning', type=filtre_type) }}"
          class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition">
         Aujourd'hui
       </a>
-      <a href="{{ url_for('planning', debut=next_semaine) }}"
+      <a href="{{ url_for('planning', debut=next_semaine, type=filtre_type) }}"
          class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-medium transition">
         Semaine suiv.
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
@@ -38,9 +38,27 @@
     </div>
   </div>
 
-  <!-- ── Légende salles ── -->
-  {% if salles %}
-  <div class="flex flex-wrap items-center gap-2 px-1">
+  <!-- ── Onglets de filtre par type ── -->
+  {% set FILTRES = [
+    ('tout',        'Tout',          'text-slate-600'),
+    ('reservation', 'Réservations',  'text-indigo-600'),
+    ('cours',       'Cours',         'text-blue-700'),
+    ('composition', 'Compositions',  'text-orange-700'),
+    ('evenement',   'Événements',    'text-emerald-700'),
+  ] %}
+  <div class="flex flex-wrap items-center gap-1.5 bg-white rounded-xl border border-slate-200 shadow-sm px-4 py-2.5">
+    {% for fid, flabel, fcolor in FILTRES %}
+    <a href="{{ url_for('planning', debut=debut_semaine.isoformat(), type=fid) }}"
+       class="px-3 py-1.5 rounded-lg text-xs font-semibold transition
+         {% if filtre_type == fid %}bg-indigo-600 text-white shadow-sm{% else %}text-slate-500 hover:bg-slate-100{% endif %}">
+      {{ flabel }}
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- ── Légende ── -->
+  <div class="flex flex-wrap items-center gap-3 px-1">
+    {% if filtre_type in ('tout', 'reservation') and salles %}
     <span class="text-xs text-slate-400 font-medium">Salles :</span>
     {% for s in salles %}
     {% set c = COULEURS_SALLES[s.id % COULEURS_SALLES|length] %}
@@ -50,8 +68,26 @@
       {{ s.nom }}
     </span>
     {% endfor %}
+    {% endif %}
+    {% if filtre_type in ('tout', 'cours') %}
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border"
+          style="background:#dbeafe;color:#1e40af;border-color:#bfdbfe">
+      <span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>Cours
+    </span>
+    {% endif %}
+    {% if filtre_type in ('tout', 'composition') %}
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border"
+          style="background:#ffedd5;color:#9a3412;border-color:#fed7aa">
+      <span class="w-1.5 h-1.5 rounded-full bg-orange-600"></span>Compositions
+    </span>
+    {% endif %}
+    {% if filtre_type in ('tout', 'evenement') %}
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold border"
+          style="background:#dcfce7;color:#14532d;border-color:#bbf7d0">
+      <span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>Événements
+    </span>
+    {% endif %}
   </div>
-  {% endif %}
 
   <!-- ── Grille planning ── -->
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
@@ -60,6 +96,7 @@
     <div class="flex border-b border-slate-200 bg-slate-50">
       <div class="w-14 shrink-0 border-r border-slate-200"></div>
       {% for j in jours %}
+      {% set blocs_jour = j.blocs if filtre_type == 'tout' else j.blocs | selectattr('type', 'eq', filtre_type) | list %}
       <div class="flex-1 px-2 py-3 text-center border-r border-slate-100 last:border-0
         {% if j.est_aujourd_hui %}bg-indigo-50{% endif %}">
         <p class="text-xs font-semibold {% if j.est_aujourd_hui %}text-indigo-700{% else %}text-slate-500{% endif %}">
@@ -71,8 +108,8 @@
         {% if j.est_aujourd_hui %}
         <span class="w-1.5 h-1.5 rounded-full bg-indigo-500 inline-block mt-0.5"></span>
         {% endif %}
-        <p class="text-xs font-medium mt-1 {% if j.blocs %}text-indigo-600{% else %}text-slate-300{% endif %}">
-          {% if j.blocs %}{{ j.blocs|length }} cours{% else %}—{% endif %}
+        <p class="text-xs font-medium mt-1 {% if blocs_jour %}text-indigo-600{% else %}text-slate-300{% endif %}">
+          {% if blocs_jour %}{{ blocs_jour|length }} créneau{{ 'x' if blocs_jour|length > 1 else '' }}{% else %}—{% endif %}
         </p>
       </div>
       {% endfor %}
@@ -94,6 +131,7 @@
 
       <!-- Colonnes jours -->
       {% for j in jours %}
+      {% set blocs_affiches = j.blocs if filtre_type == 'tout' else j.blocs | selectattr('type', 'eq', filtre_type) | list %}
       <div class="flex-1 relative border-r border-slate-100 last:border-0 min-w-0
         {% if j.est_aujourd_hui %}bg-indigo-50/30{% endif %}"
            style="height: {{ hauteur_grille }}px; min-width: 110px">
@@ -104,30 +142,44 @@
              style="top: {{ (h - grille_heures[0]) * HAUTEUR_HEURE }}px"></div>
         {% endfor %}
 
-        <!-- Blocs de réservation -->
-        {% for b in j.blocs %}
-        <a href="{{ url_for('reservations') }}"
-           class="absolute left-1 right-1 rounded-lg px-2 py-1 overflow-hidden border cursor-pointer hover:brightness-95 transition-all group"
+        <!-- Blocs -->
+        {% for b in blocs_affiches %}
+        {% if b.type == 'reservation' %}
+          {% set href = url_for('reservations') %}
+        {% elif b.type == 'cours' %}
+          {% set href = url_for('cours_v2_liste') %}
+        {% elif b.type == 'composition' %}
+          {% set href = url_for('compositions_liste') %}
+        {% else %}
+          {% set href = url_for('evenements_liste') %}
+        {% endif %}
+        <a href="{{ href }}"
+           class="absolute left-1 right-1 rounded-lg px-2 py-1 overflow-hidden border cursor-pointer hover:brightness-95 transition-all"
            style="top: {{ b.top }}px; height: {{ b.height }}px;
                   background: {{ b.c.bg }}; color: {{ b.c.text }}; border-color: {{ b.c.border }}">
-          <p class="text-xs font-bold leading-tight truncate">{{ b.r.salle.nom }}</p>
-          {% if b.height >= 40 %}
-          <p class="text-xs leading-tight truncate opacity-80">{{ format_classe(b.r.classe) }}</p>
+
+          <!-- Badge type (si vue "tout") -->
+          {% if filtre_type == 'tout' and b.height >= 28 %}
+          <span class="text-[9px] font-bold uppercase tracking-wide opacity-60 leading-none">
+            {% if b.type == 'reservation' %}rés.{% elif b.type == 'cours' %}cours{% elif b.type == 'composition' %}comp.{% else %}évt{% endif %}
+          </span>
           {% endif %}
+
+          <p class="text-xs font-bold leading-tight truncate">{{ b.label }}</p>
+
+          {% if b.height >= 40 and b.sous_label %}
+          <p class="text-xs leading-tight truncate opacity-80">{{ b.sous_label }}</p>
+          {% endif %}
+
           {% if b.height >= 56 %}
-          <p class="text-xs leading-tight truncate opacity-70">
-            {{ b.r.heure_debut.strftime('%H:%M') }}–{{ b.r.heure_fin.strftime('%H:%M') }}
-          </p>
+          <p class="text-xs leading-tight truncate opacity-70">{{ b.heure }}</p>
           {% endif %}
-          {% if b.height >= 72 and b.r.matiere %}
+
+          {% if b.height >= 72 and b.type == 'reservation' and b.r.matiere %}
           <p class="text-xs leading-tight truncate opacity-60 italic">{{ b.r.matiere }}</p>
           {% endif %}
         </a>
         {% endfor %}
-
-        {% if not j.blocs %}
-        <!-- Colonne vide -->
-        {% endif %}
 
       </div>
       {% endfor %}
@@ -136,14 +188,26 @@
   </div>
 
   <!-- ── Résumé semaine ── -->
-  {% set total_blocs = jours | map(attribute='blocs') | map('length') | sum %}
-  {% if total_blocs == 0 %}
+  {% set total_blocs = namespace(n=0) %}
+  {% for j in jours %}
+    {% if filtre_type == 'tout' %}
+      {% set total_blocs.n = total_blocs.n + j.blocs|length %}
+    {% else %}
+      {% set total_blocs.n = total_blocs.n + (j.blocs | selectattr('type', 'eq', filtre_type) | list | length) %}
+    {% endif %}
+  {% endfor %}
+  {% if total_blocs.n == 0 %}
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm py-10 text-center">
     <svg class="w-10 h-10 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
       <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
     </svg>
-    <p class="text-slate-400 font-medium text-sm">Aucune réservation cette semaine</p>
-    {% if peut_gerer %}
+    <p class="text-slate-400 font-medium text-sm">
+      {% if filtre_type == 'cours' %}Aucun cours cette semaine
+      {% elif filtre_type == 'composition' %}Aucune composition cette semaine
+      {% elif filtre_type == 'evenement' %}Aucun événement cette semaine
+      {% else %}Aucun créneau cette semaine{% endif %}
+    </p>
+    {% if peut_gerer and filtre_type in ('tout', 'reservation') %}
     <a href="{{ url_for('reservation_ajouter') }}"
        class="inline-flex items-center gap-1.5 mt-3 text-indigo-600 hover:text-indigo-800 text-sm font-medium">
       Créer une réservation

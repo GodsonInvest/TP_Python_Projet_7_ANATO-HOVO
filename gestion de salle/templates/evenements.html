@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Événements{% endblock %}
+{% block heading %}Événements{% endblock %}
+
+{% block content %}
+<div class="flex items-center justify-between mb-5">
+  <div class="flex items-center gap-3">
+    <p class="text-sm text-slate-500">{{ evenements|length }} événement{{ 's' if evenements|length != 1 else '' }}</p>
+    {% if nb_en_attente > 0 and role == 'admin' %}
+    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">
+      {{ nb_en_attente }} en attente
+    </span>
+    {% endif %}
+  </div>
+  <a href="{{ url_for('evenements_nouveau') }}" class="btn-primary">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+    Nouvel événement
+  </a>
+</div>
+
+{% if not evenements %}
+<div class="bg-white rounded-xl border border-slate-200 shadow-sm px-8 py-14 text-center">
+  <div class="w-14 h-14 rounded-2xl bg-violet-50 flex items-center justify-center mx-auto mb-4">
+    <svg class="w-7 h-7 text-violet-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/>
+    </svg>
+  </div>
+  <p class="text-slate-700 font-semibold mb-1">Aucun événement planifié</p>
+  <a href="{{ url_for('evenements_nouveau') }}" class="btn-primary inline-flex mt-4">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+    Nouvel événement
+  </a>
+</div>
+{% endif %}
+
+<div class="space-y-3">
+{% for evt in evenements %}
+  {% set salle = salles_dict.get(evt.salle_id) %}
+  {% set createur = utilisateurs.get(evt.created_by) %}
+  {% set passe = evt.date_fin < today %}
+
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+
+    <!-- En-tête de la carte -->
+    <div class="px-6 py-4 flex flex-wrap items-start justify-between gap-3">
+      <div class="flex items-start gap-3 min-w-0">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0
+          {% if evt.statut == 'valide' and not passe %}bg-violet-100
+          {% elif passe %}bg-slate-100
+          {% else %}bg-amber-50{% endif %}">
+          <svg class="w-5 h-5
+            {% if evt.statut == 'valide' and not passe %}text-violet-600
+            {% elif passe %}text-slate-400
+            {% else %}text-amber-500{% endif %}"
+            fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"/>
+          </svg>
+        </div>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2 mb-0.5">
+            <span class="text-base font-semibold text-slate-800">{{ evt.titre }}</span>
+            <!-- Badge statut -->
+            {% if evt.statut == 'en_attente' %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700 border border-amber-200">En attente</span>
+            {% elif evt.statut == 'valide' %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 border border-emerald-200">Validé</span>
+            {% elif evt.statut == 'refuse' %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-200">Refusé</span>
+            {% endif %}
+            {% if passe %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">Passé</span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-slate-500 line-clamp-1">{{ evt.description }}</p>
+          {% if createur %}
+          <p class="text-xs text-slate-400 mt-0.5">Par <span class="font-medium text-slate-600">{{ createur.nom }}</span></p>
+          {% endif %}
+        </div>
+      </div>
+      <div class="text-right shrink-0">
+        <p class="text-sm font-semibold text-slate-700">{{ evt.date_debut }}{% if evt.date_debut != evt.date_fin %} → {{ evt.date_fin }}{% endif %}</p>
+        <p class="text-xs text-slate-400">{{ evt.heure_debut }}–{{ evt.heure_fin }}</p>
+        <p class="text-xs text-slate-500 mt-0.5">{{ salle.nom if salle else '—' }}</p>
+      </div>
+    </div>
+
+    <!-- Motif de refus -->
+    {% if evt.statut == 'refuse' and evt.motif_refus %}
+    <div class="border-t border-red-100 px-6 py-3 bg-red-50/50">
+      <p class="text-xs text-red-600"><span class="font-semibold">Motif :</span> {{ evt.motif_refus }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Panneau de validation admin (en_attente uniquement) -->
+    {% if evt.statut == 'en_attente' and role == 'admin' %}
+    <div class="border-t border-amber-100 px-6 py-4 bg-amber-50/30">
+      <p class="text-xs font-semibold text-amber-700 mb-3">Décision</p>
+      <div class="flex flex-wrap items-start gap-3">
+        <!-- Valider -->
+        <form method="POST" action="{{ url_for('evenements_valider', evt_id=evt.id) }}">
+          <button type="submit"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition shadow-sm">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            Valider
+          </button>
+        </form>
+        <!-- Refuser avec motif -->
+        <form method="POST" action="{{ url_for('evenements_refuser', evt_id=evt.id) }}"
+          class="flex items-center gap-2"
+          onsubmit="const m=this.querySelector('[name=motif]');if(!m.value.trim()){m.focus();return false;}">
+          <input type="text" name="motif" placeholder="Motif du refus…" required
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-red-400 w-52"/>
+          <button type="submit"
+            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            Refuser
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Pied de carte : modifier -->
+    {% if not passe and evt.statut != 'refuse' %}
+    <div class="border-t border-slate-100 px-6 py-3 flex justify-end bg-slate-50/50">
+      <a href="{{ url_for('evenements_modifier', evt_id=evt.id) }}"
+        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100 transition">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        Modifier
+      </a>
+    </div>
+    {% endif %}
+
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

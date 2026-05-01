@@ -184,6 +184,112 @@ def _html_reservation(reservation: Reservation, annulation: bool = False) -> str
 """ + _FOOTER + _WRAP_END
 
 
+def _html_cours(cours: dict, annulation: bool = False) -> str:
+    if annulation:
+        titre, badge, barre = "Cours annulé", _badge("❌ Annulé", "#fee2e2", "#b91c1c"), "#ef4444"
+    else:
+        titre, badge, barre = "Cours planifié", _badge("📅 Cours planifié", "#e0e7ff", "#3730a3"), "#4f46e5"
+    jours_rows = "".join(
+        _info_row(j["jour_semaine"].capitalize(), f"{j['heure_debut']} → {j['heure_fin']}")
+        for j in cours.get("jours", [])
+    )
+    rows = (
+        _info_row("Matière", cours.get("matiere") or "—")
+        + _info_row("Période", f"{cours.get('date_debut', '')} → {cours.get('date_fin', '')}")
+        + jours_rows
+    )
+    return _WRAP_START + _HEADER + f"""
+      <tr><td><div style="height:4px;background:{barre};"></div></td></tr>
+      <tr>
+        <td style="padding:36px 40px 20px;">
+          <div style="margin-bottom:12px;">{badge}</div>
+          <p style="margin:8px 0 4px;color:#1e293b;font-size:22px;font-weight:700;">{titre}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px 36px;">
+          <table width="100%" cellpadding="0" cellspacing="0"
+                 style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+            <tr><td style="padding:0 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0">{rows}</table>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+""" + _FOOTER + _WRAP_END
+
+
+def _html_composition(comp: dict, annulation: bool = False) -> str:
+    if annulation:
+        titre, badge, barre = "Composition annulée", _badge("❌ Annulée", "#fee2e2", "#b91c1c"), "#ef4444"
+    else:
+        titre, badge, barre = "Composition planifiée", _badge("📝 Composition", "#fff7ed", "#c2410c"), "#f97316"
+    sur_cours = comp.get("sur_cours_existant", 0)
+    mention = (
+        '<tr><td colspan="2" style="padding:8px 0;">'
+        '<span style="background:#fef3c7;padding:6px 12px;border-radius:6px;font-size:12px;color:#92400e;">'
+        '📌 Composition sur cours existant</span></td></tr>'
+    ) if sur_cours else ""
+    rows = (
+        _info_row("Matière", comp.get("matiere") or "—")
+        + _info_row("Date", comp.get("date", "—"))
+        + _info_row("Horaire", f"{comp.get('heure_debut', '')} → {comp.get('heure_fin', '')}")
+        + mention
+    )
+    return _WRAP_START + _HEADER + f"""
+      <tr><td><div style="height:4px;background:{barre};"></div></td></tr>
+      <tr>
+        <td style="padding:36px 40px 20px;">
+          <div style="margin-bottom:12px;">{badge}</div>
+          <p style="margin:8px 0 4px;color:#1e293b;font-size:22px;font-weight:700;">{titre}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px 36px;">
+          <table width="100%" cellpadding="0" cellspacing="0"
+                 style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+            <tr><td style="padding:0 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0">{rows}</table>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+""" + _FOOTER + _WRAP_END
+
+
+def _html_evenement(evt: dict, annulation: bool = False) -> str:
+    if annulation:
+        titre, badge, barre = "Événement annulé", _badge("❌ Annulé", "#fee2e2", "#b91c1c"), "#ef4444"
+    else:
+        t = evt.get("titre", "")
+        titre, badge, barre = f"Événement : {t}", _badge("🎓 Événement", "#dcfce7", "#15803d"), "#22c55e"
+    rows = (
+        _info_row("Description", evt.get("description") or "—")
+        + _info_row("Du", evt.get("date_debut", "—"))
+        + _info_row("Au", evt.get("date_fin", "—"))
+        + _info_row("Horaire", f"{evt.get('heure_debut', '')} → {evt.get('heure_fin', '')}")
+    )
+    return _WRAP_START + _HEADER + f"""
+      <tr><td><div style="height:4px;background:{barre};"></div></td></tr>
+      <tr>
+        <td style="padding:36px 40px 20px;">
+          <div style="margin-bottom:12px;">{badge}</div>
+          <p style="margin:8px 0 4px;color:#1e293b;font-size:22px;font-weight:700;">{titre}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 40px 36px;">
+          <table width="100%" cellpadding="0" cellspacing="0"
+                 style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">
+            <tr><td style="padding:0 20px;">
+              <table width="100%" cellpadding="0" cellspacing="0">{rows}</table>
+            </td></tr>
+          </table>
+        </td>
+      </tr>
+""" + _FOOTER + _WRAP_END
+
+
 def _html_test() -> str:
     return _WRAP_START + _HEADER + """
       <tr>
@@ -292,6 +398,47 @@ class NotificationEmail:
             self.envoyer_enseignant(reservation, enseignant, annulation)
         if etudiants:
             self.envoyer_classe(reservation, etudiants, annulation)
+
+    # ── Notifications cours / composition / événement ──────────────────────────
+
+    def notifier_cours(self, cours: dict, etudiants: list,
+                       ens_email: str, ens_nom: str, annulation: bool = False):
+        sujet = "❌ Cours annulé" if annulation else f"📅 Cours — {cours.get('matiere', '')}"
+        html  = _html_cours(cours, annulation)
+        for e in etudiants:
+            try:
+                self.envoyer_email(e.email, sujet, html)
+            except Exception:
+                pass
+        if ens_email:
+            try:
+                self.envoyer_email(ens_email, sujet, html)
+            except Exception:
+                pass
+
+    def notifier_composition(self, comp: dict, etudiants: list,
+                             ens_email: str, ens_nom: str, annulation: bool = False):
+        sujet = "❌ Composition annulée" if annulation else f"📝 Composition — {comp.get('matiere', '')}"
+        html  = _html_composition(comp, annulation)
+        for e in etudiants:
+            try:
+                self.envoyer_email(e.email, sujet, html)
+            except Exception:
+                pass
+        if ens_email:
+            try:
+                self.envoyer_email(ens_email, sujet, html)
+            except Exception:
+                pass
+
+    def notifier_evenement(self, evt: dict, utilisateurs: list, annulation: bool = False):
+        sujet = "❌ Événement annulé" if annulation else f"🎓 Événement — {evt.get('titre', '')}"
+        html  = _html_evenement(evt, annulation)
+        for u in utilisateurs:
+            try:
+                self.envoyer_email(u.email, sujet, html)
+            except Exception:
+                pass
 
     def __repr__(self):
         return f"<NotificationEmail host='{self.__smtp_host}' port={self.__smtp_port} from='{self.__expediteur}'>"

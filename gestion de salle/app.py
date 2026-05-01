@@ -16,6 +16,9 @@ from models.salle import Salle
 from models.reservation import Reservation, StatutReservation
 from services.authentification import Authentification
 from services.gestion_reservation import GestionReservation
+from services.gestion_cours import GestionCours
+from services.gestion_composition import GestionComposition
+from services.gestion_evenement import GestionEvenement
 from services.notification_email import NotificationEmail
 from persistance.db_sqlite import BaseDonneesSQLite
 
@@ -608,6 +611,30 @@ def dashboard():
         }
         recentes = []
 
+    # Données pour les nouvelles sections
+    toutes_comps = bd.charger_toutes_compositions()
+    tous_evts    = bd.charger_tous_evenements()
+    unites_dict  = {u.id: u for u in bd.charger_toutes_unites()}
+
+    # Compositions à venir pour l'étudiant
+    comps_etudiant = []
+    if role == "etudiant" and u_courant:
+        uf_id = getattr(u_courant, "unite_formation_id", None)
+        comps_etudiant = sorted(
+            [c for c in toutes_comps
+             if c.get("filiere_id") == uf_id and c["date"] >= aujourd_hui.isoformat()],
+            key=lambda c: c["date"],
+        )[:5]
+
+    # Événements en attente pour admin
+    evts_en_attente = [e for e in tous_evts if e["statut"] == "en_attente"] if role == "admin" else []
+
+    # Événements refusés pour le responsable
+    evts_refuses = [
+        e for e in tous_evts
+        if e["statut"] == "refuse" and e["created_by"] == session["user_id"]
+    ] if role == "responsable" else []
+
     return render_template(
         "dashboard.html", active="dashboard",
         role=role,
@@ -616,6 +643,10 @@ def dashboard():
         prochaines=prochaines,
         aujourd_hui=aujourd_hui,
         StatutReservation=StatutReservation,
+        comps_etudiant=comps_etudiant,
+        evts_en_attente=evts_en_attente,
+        evts_refuses=evts_refuses,
+        unites_dict=unites_dict,
     )
 
 
@@ -1009,35 +1040,102 @@ def planning():
             if debut_semaine <= r.date <= fin_semaine
             and r.statut in (StatutReservation.CONFIRMEE, StatutReservation.EN_ATTENTE)]
 
+    # Charger cours, compositions, événements pour la semaine
+    _JOURS_NOM = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+    tous_cours_v2  = bd.charger_tous_cours_v2()
+    toutes_comps   = bd.charger_toutes_compositions()
+    tous_evts      = [e for e in bd.charger_tous_evenements() if e["statut"] == "valide"]
+    unites_dict    = {u.id: u for u in bd.charger_toutes_unites()}
+
     HEURE_DEBUT   = 7
     HEURE_FIN     = 21
-    HAUTEUR_HEURE = 64   # px
+    HAUTEUR_HEURE = 64
     noms_jours    = ["Lun.", "Mar.", "Mer.", "Jeu.", "Ven.", "Sam.", "Dim."]
+
+    C_COURS = {"bg": "#dbeafe", "text": "#1e40af", "border": "#bfdbfe"}
+    C_COMP  = {"bg": "#ffedd5", "text": "#9a3412", "border": "#fed7aa"}
+    C_EVT   = {"bg": "#dcfce7", "text": "#14532d", "border": "#bbf7d0"}
+
+    def _bloc(heure_debut_str, heure_fin_str, label, sous_label, couleur, type_bloc):
+        dh = int(heure_debut_str[:2]) + int(heure_debut_str[3:]) / 60
+        fh = int(heure_fin_str[:2])   + int(heure_fin_str[3:]) / 60
+        return {
+            "top":        round(max(0, (dh - HEURE_DEBUT) * HAUTEUR_HEURE)),
+            "height":     round(max(28, (fh - dh) * HAUTEUR_HEURE)),
+            "c":          couleur,
+            "label":      label,
+            "sous_label": sous_label,
+            "heure":      f"{heure_debut_str}–{heure_fin_str}",
+            "type":       type_bloc,
+        }
 
     jours = []
     for i in range(7):
-        d     = debut_semaine + timedelta(days=i)
+        d   = debut_semaine + timedelta(days=i)
         blocs = []
+
+        # Réservations classiques
         for r in sorted(pool, key=lambda r: r.heure_debut):
             if r.date != d:
                 continue
             dh = r.heure_debut.hour + r.heure_debut.minute / 60
             fh = r.heure_fin.hour   + r.heure_fin.minute   / 60
-            top    = max(0, (dh - HEURE_DEBUT) * HAUTEUR_HEURE)
-            height = max(28, (fh - dh) * HAUTEUR_HEURE)
             blocs.append({
-                "r":      r,
-                "top":    round(top),
-                "height": round(height),
-                "c":      COULEURS_SALLES[r.salle.id % len(COULEURS_SALLES)],
+                "r":          r,
+                "top":        round(max(0, (dh - HEURE_DEBUT) * HAUTEUR_HEURE)),
+                "height":     round(max(28, (fh - dh) * HAUTEUR_HEURE)),
+                "c":          COULEURS_SALLES[r.salle.id % len(COULEURS_SALLES)],
+                "label":      r.salle.nom,
+                "sous_label": _format_classe(r.classe),
+                "heure":      f"{r.heure_debut.strftime('%H:%M')}–{r.heure_fin.strftime('%H:%M')}",
+                "type":       "reservation",
             })
+
+        # Cours (récurrents)
+        jour_nom = _JOURS_NOM[d.weekday()]
+        for c in tous_cours_v2:
+            if c["date_debut"] <= d.isoformat() <= c["date_fin"]:
+                for j in c["jours"]:
+                    if j["jour_semaine"] == jour_nom:
+                        salle = salles_dict.get(j["salle_id"])
+                        filiere = unites_dict.get(c.get("filiere_id"))
+                        blocs.append(_bloc(
+                            j["heure_debut"], j["heure_fin"],
+                            c.get("matiere") or "Cours",
+                            filiere.nom if filiere else "",
+                            C_COURS, "cours",
+                        ))
+
+        # Compositions
+        for comp in toutes_comps:
+            if comp["date"] == d.isoformat():
+                filiere = unites_dict.get(comp.get("filiere_id"))
+                blocs.append(_bloc(
+                    comp["heure_debut"], comp["heure_fin"],
+                    f"Compο — {comp.get('matiere', '')}",
+                    filiere.nom if filiere else "",
+                    C_COMP, "composition",
+                ))
+
+        # Événements validés
+        for evt in tous_evts:
+            if evt["date_debut"] <= d.isoformat() <= evt["date_fin"]:
+                blocs.append(_bloc(
+                    evt["heure_debut"], evt["heure_fin"],
+                    evt["titre"],
+                    "",
+                    C_EVT, "evenement",
+                ))
+
+        blocs.sort(key=lambda b: b["top"])
         jours.append({
-            "date":          d,
-            "label":         noms_jours[i],
+            "date":            d,
+            "label":           noms_jours[i],
             "est_aujourd_hui": d == date.today(),
-            "blocs":         blocs,
+            "blocs":           blocs,
         })
 
+    filtre_type = request.args.get("type", "tout")
     return render_template(
         "planning.html", active="planning",
         jours=jours,
@@ -1052,6 +1150,7 @@ def planning():
         COULEURS_SALLES=COULEURS_SALLES,
         peut_gerer=peut_gerer_reservations(),
         StatutReservation=StatutReservation,
+        filtre_type=filtre_type,
     )
 
 
@@ -1773,6 +1872,545 @@ def cours_annuler(cours_id):
         bd.sauvegarder_reservation(r)
     flash(f"{len(annulees)} séance(s) future(s) annulée(s).", "success")
     return redirect(url_for("cours_liste"))
+
+
+# ── API AJAX ──────────────────────────────────────────────────────────────────────
+
+@app.route("/api/enseignants/recherche")
+@login_required
+def api_enseignants_recherche():
+    from flask import jsonify
+    q = request.args.get("q", "").strip().lower()
+    _, utilisateurs, _, _ = get_data()
+    resultats = [
+        {"id": u.id, "nom": u.nom, "email": u.email,
+         "matieres": getattr(u, "matieres", [])}
+        for u in utilisateurs.values()
+        if u.role == "enseignant" and (q in u.nom.lower() or q in u.email.lower())
+    ]
+    return jsonify(resultats[:10])
+
+
+# ── Cours v2 (nouveau système avec filière) ───────────────────────────────────────
+
+def _parser_cours_v2(form, salles_dict):
+    """Parse le formulaire cours v2 (filiere_id + vacataire). Retourne (data, erreur|None)."""
+    filiere_id_str = form.get("filiere_id", "").strip()
+    filiere_id     = int(filiere_id_str) if filiere_id_str.isdigit() else None
+    if not filiere_id:
+        return None, "La filière est obligatoire."
+
+    ens_id_str    = form.get("enseignant_id", "").strip()
+    enseignant_id = int(ens_id_str) if ens_id_str.isdigit() else None
+    ens_nom_ext   = form.get("enseignant_nom_ext", "").strip()
+    ens_email_ext = form.get("enseignant_email_ext", "").strip()
+    matiere       = form.get("matiere", "").strip()
+
+    date_debut_str = form.get("date_debut", "").strip()
+    date_fin_str   = form.get("date_fin", "").strip()
+    if not all([date_debut_str, date_fin_str]):
+        return None, "Les dates de début et fin sont obligatoires."
+    try:
+        date_debut = date.fromisoformat(date_debut_str)
+        date_fin   = date.fromisoformat(date_fin_str)
+    except ValueError:
+        return None, "Dates invalides."
+    if date_debut >= date_fin:
+        return None, "La date de fin doit être après la date de début."
+
+    JOURS_NOMS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi"]
+    jours_config = []
+    for jour in JOURS_NOMS:
+        if form.get(f"jour_{jour}"):
+            sid  = form.get(f"salle_{jour}", "")
+            hdeb = form.get(f"debut_{jour}", "")
+            hfin = form.get(f"fin_{jour}", "")
+            if sid.isdigit() and hdeb and hfin:
+                try:
+                    jours_config.append({
+                        "jour_semaine": jour,
+                        "salle_id":     int(sid),
+                        "heure_debut":  dtime.fromisoformat(hdeb).strftime("%H:%M"),
+                        "heure_fin":    dtime.fromisoformat(hfin).strftime("%H:%M"),
+                    })
+                except ValueError:
+                    pass
+
+    if not jours_config:
+        return None, "Au moins un jour doit être configuré avec salle et horaires."
+
+    return {
+        "filiere_id":           filiere_id,
+        "enseignant_id":        enseignant_id,
+        "enseignant_nom_ext":   ens_nom_ext,
+        "enseignant_email_ext": ens_email_ext,
+        "matiere":              matiere,
+        "date_debut":           date_debut,
+        "date_fin":             date_fin,
+        "jours":                jours_config,
+        "created_by":           session["user_id"],
+    }, None
+
+
+@app.route("/cours/v2")
+@login_required
+def cours_v2_liste():
+    if not peut_gerer_reservations():
+        flash("Accès réservé aux responsables et administrateurs.", "error")
+        return redirect(url_for("dashboard"))
+    bd, utilisateurs, salles_dict, _ = get_data()
+    tous_cours = bd.charger_tous_cours_v2()
+    unites     = {u.id: u for u in bd.charger_toutes_unites()}
+    return render_template(
+        "cours_v2.html", active="cours",
+        cours_liste=tous_cours,
+        utilisateurs=utilisateurs,
+        salles_dict=salles_dict,
+        unites=unites,
+        today=date.today().isoformat(),
+    )
+
+
+@app.route("/cours/v2/nouveau", methods=["GET", "POST"])
+@login_required
+def cours_v2_nouveau():
+    if not peut_gerer_reservations():
+        flash("Accès réservé aux responsables et administrateurs.", "error")
+        return redirect(url_for("dashboard"))
+
+    bd, utilisateurs, salles_dict, _ = get_data()
+    ecoles  = bd.charger_toutes_ecoles()
+    unites  = bd.charger_toutes_unites()
+    groupes = {}
+    for u in unites:
+        groupes.setdefault(u.ecole_id, []).append(u)
+    ecoles_filieres = [
+        {"ecole": e, "unites": sorted(groupes.get(e.id, []), key=lambda x: (x.nom, x.niveau))}
+        for e in ecoles if groupes.get(e.id)
+    ]
+    unites_json = json.dumps([u.to_dict() for u in unites])
+
+    if request.method == "POST":
+        cours_data, erreur = _parser_cours_v2(request.form, salles_dict)
+        if erreur:
+            flash(erreur, "error")
+        else:
+            gc      = GestionCours(bd)
+            notif   = _get_notif()
+            resultat = gc.creer_cours(cours_data, notif=notif, utilisateurs=utilisateurs)
+            if resultat["conflits"]:
+                flash(f"{len(resultat['conflits'])} conflit(s) détecté(s). Vérifiez les dates.", "error")
+                return render_template(
+                    "cours_v2_form.html", active="cours",
+                    ecoles_filieres=ecoles_filieres, unites_json=unites_json,
+                    salles=list(salles_dict.values()),
+                    conflits=resultat["conflits"],
+                    today=date.today().isoformat(),
+                )
+            flash(f"Cours créé avec succès.", "success")
+            return redirect(url_for("cours_v2_liste"))
+
+    return render_template(
+        "cours_v2_form.html", active="cours",
+        ecoles_filieres=ecoles_filieres, unites_json=unites_json,
+        salles=list(salles_dict.values()),
+        conflits=[],
+        today=date.today().isoformat(),
+    )
+
+
+@app.route("/cours/v2/<int:cours_id>/modifier", methods=["GET", "POST"])
+@login_required
+def cours_v2_modifier(cours_id):
+    if not peut_gerer_reservations():
+        flash("Accès réservé.", "error")
+        return redirect(url_for("dashboard"))
+
+    bd, utilisateurs, salles_dict, _ = get_data()
+    cours = bd.charger_cours_v2_par_id(cours_id)
+    if not cours:
+        flash("Cours introuvable.", "error")
+        return redirect(url_for("cours_v2_liste"))
+
+    ecoles  = bd.charger_toutes_ecoles()
+    unites  = bd.charger_toutes_unites()
+    groupes = {}
+    for u in unites:
+        groupes.setdefault(u.ecole_id, []).append(u)
+    ecoles_filieres = [
+        {"ecole": e, "unites": sorted(groupes.get(e.id, []), key=lambda x: (x.nom, x.niveau))}
+        for e in ecoles if groupes.get(e.id)
+    ]
+    unites_json = json.dumps([u.to_dict() for u in unites])
+
+    if request.method == "POST":
+        cours_data, erreur = _parser_cours_v2(request.form, salles_dict)
+        if erreur:
+            flash(erreur, "error")
+        else:
+            gc       = GestionCours(bd)
+            notif    = _get_notif()
+            resultat = gc.modifier_cours(cours_id, cours_data, notif=notif, utilisateurs=utilisateurs)
+            if resultat.get("conflits"):
+                flash(f"{len(resultat['conflits'])} conflit(s) après modification.", "error")
+            else:
+                flash("Cours modifié.", "success")
+                return redirect(url_for("cours_v2_liste"))
+
+    return render_template(
+        "cours_v2_form.html", active="cours",
+        ecoles_filieres=ecoles_filieres, unites_json=unites_json,
+        salles=list(salles_dict.values()),
+        cours=cours, conflits=[],
+        today=date.today().isoformat(),
+    )
+
+
+@app.route("/cours/v2/<int:cours_id>/annuler", methods=["POST"])
+@login_required
+def cours_v2_annuler(cours_id):
+    if not peut_gerer_reservations():
+        flash("Accès réservé.", "error")
+        return redirect(url_for("dashboard"))
+    bd, utilisateurs, _, _ = get_data()
+    gc    = GestionCours(bd)
+    notif = _get_notif()
+    if gc.annuler_cours(cours_id, notif=notif, utilisateurs=utilisateurs):
+        flash("Cours annulé.", "success")
+    else:
+        flash("Cours introuvable.", "error")
+    return redirect(url_for("cours_v2_liste"))
+
+
+@app.route("/cours/v2/verifier-conflits", methods=["POST"])
+@login_required
+def cours_v2_verifier_conflits():
+    from flask import jsonify
+    bd, _, salles_dict, _ = get_data()
+    cours_data, erreur = _parser_cours_v2(request.form, salles_dict)
+    if erreur:
+        return jsonify({"erreur": erreur, "conflits": []}), 400
+    gc = GestionCours(bd)
+    conflits = gc.verifier_conflits(cours_data)
+    return jsonify({
+        "nb_conflits": len(conflits),
+        "conflits": [
+            {
+                "date": c["date"], "jour": c["jour"],
+                "heure_debut": c["heure_debut"], "heure_fin": c["heure_fin"],
+                "conflit_type": c["conflit"]["type"],
+                "conflit_label": c["conflit"]["label"],
+            }
+            for c in conflits
+        ],
+    })
+
+
+# ── Compositions ──────────────────────────────────────────────────────────────────
+
+def _peut_gerer_compositions():
+    return session.get("user_role") in ("admin", "responsable", "enseignant")
+
+
+@app.route("/compositions")
+@login_required
+def compositions_liste():
+    if not _peut_gerer_compositions():
+        flash("Accès non autorisé.", "error")
+        return redirect(url_for("dashboard"))
+    bd, utilisateurs, salles_dict, _ = get_data()
+    toutes   = bd.charger_toutes_compositions()
+    unites   = {u.id: u for u in bd.charger_toutes_unites()}
+    return render_template(
+        "compositions.html", active="compositions",
+        compositions=toutes,
+        utilisateurs=utilisateurs,
+        salles_dict=salles_dict,
+        unites=unites,
+        today=date.today().isoformat(),
+    )
+
+
+@app.route("/compositions/nouvelle", methods=["GET", "POST"])
+@login_required
+def compositions_nouvelle():
+    if not _peut_gerer_compositions():
+        flash("Accès non autorisé.", "error")
+        return redirect(url_for("dashboard"))
+
+    bd, utilisateurs, salles_dict, _ = get_data()
+    ecoles  = bd.charger_toutes_ecoles()
+    unites  = bd.charger_toutes_unites()
+    groupes = {}
+    for u in unites:
+        groupes.setdefault(u.ecole_id, []).append(u)
+    ecoles_filieres = [
+        {"ecole": e, "unites": sorted(groupes.get(e.id, []), key=lambda x: (x.nom, x.niveau))}
+        for e in ecoles if groupes.get(e.id)
+    ]
+    unites_json = json.dumps([u.to_dict() for u in unites])
+
+    if request.method == "POST":
+        filiere_id_str = request.form.get("filiere_id", "").strip()
+        filiere_id     = int(filiere_id_str) if filiere_id_str.isdigit() else None
+        ens_id_str     = request.form.get("enseignant_id", "").strip()
+        enseignant_id  = int(ens_id_str) if ens_id_str.isdigit() else None
+        salle_id_str   = request.form.get("salle_id", "").strip()
+        salle_id       = int(salle_id_str) if salle_id_str.isdigit() else None
+        date_str       = request.form.get("date", "").strip()
+        hdeb           = request.form.get("heure_debut", "").strip()
+        hfin           = request.form.get("heure_fin", "").strip()
+        matiere        = request.form.get("matiere", "").strip()
+        ens_nom_ext    = request.form.get("enseignant_nom_ext", "").strip()
+        ens_email_ext  = request.form.get("enseignant_email_ext", "").strip()
+
+        if not all([filiere_id, salle_id, date_str, hdeb, hfin]):
+            flash("Tous les champs obligatoires doivent être remplis.", "error")
+        else:
+            try:
+                comp_data = {
+                    "filiere_id":           filiere_id,
+                    "enseignant_id":        enseignant_id,
+                    "enseignant_nom_ext":   ens_nom_ext,
+                    "enseignant_email_ext": ens_email_ext,
+                    "matiere":              matiere,
+                    "salle_id":             salle_id,
+                    "date":                 date.fromisoformat(date_str),
+                    "heure_debut":          hdeb,
+                    "heure_fin":            hfin,
+                    "created_by":           session["user_id"],
+                }
+                gc    = GestionComposition(bd)
+                notif = _get_notif()
+                res   = gc.creer_composition(comp_data, notif=notif, utilisateurs=utilisateurs)
+                if res["conflit"]:
+                    c = res["conflit"]
+                    flash(f"Conflit avec {c['type']} « {c['label']} » ({c['heure_debut']}–{c['heure_fin']}).", "error")
+                else:
+                    mention = " (sur cours existant)" if res["sur_cours_existant"] else ""
+                    flash(f"Composition créée{mention}.", "success")
+                    return redirect(url_for("compositions_liste"))
+            except ValueError as e:
+                flash(str(e), "error")
+
+    return render_template(
+        "composition_form.html", active="compositions",
+        ecoles_filieres=ecoles_filieres, unites_json=unites_json,
+        salles=list(salles_dict.values()),
+        today=date.today().isoformat(),
+    )
+
+
+@app.route("/compositions/<int:comp_id>/annuler", methods=["POST"])
+@login_required
+def compositions_annuler(comp_id):
+    if not _peut_gerer_compositions():
+        flash("Accès non autorisé.", "error")
+        return redirect(url_for("dashboard"))
+    bd, utilisateurs, _, _ = get_data()
+    gc    = GestionComposition(bd)
+    notif = _get_notif()
+    if gc.annuler_composition(comp_id, notif=notif, utilisateurs=utilisateurs):
+        flash("Composition annulée.", "success")
+    else:
+        flash("Composition introuvable.", "error")
+    return redirect(url_for("compositions_liste"))
+
+
+# ── Événements ────────────────────────────────────────────────────────────────────
+
+@app.route("/evenements")
+@login_required
+def evenements_liste():
+    if not peut_gerer_reservations():
+        flash("Accès non autorisé.", "error")
+        return redirect(url_for("dashboard"))
+    bd, utilisateurs, salles_dict, _ = get_data()
+    tous  = bd.charger_tous_evenements()
+    en_attente = [e for e in tous if e["statut"] == "en_attente"]
+    return render_template(
+        "evenements.html", active="evenements",
+        evenements=tous,
+        nb_en_attente=len(en_attente),
+        utilisateurs=utilisateurs,
+        salles_dict=salles_dict,
+        today=date.today().isoformat(),
+        role=session.get("user_role"),
+    )
+
+
+@app.route("/evenements/nouveau", methods=["GET", "POST"])
+@login_required
+def evenements_nouveau():
+    if not peut_gerer_reservations():
+        flash("Accès non autorisé.", "error")
+        return redirect(url_for("dashboard"))
+
+    bd, utilisateurs, salles_dict, _ = get_data()
+
+    ecoles  = bd.charger_toutes_ecoles()
+    unites  = bd.charger_toutes_unites()
+    groupes = {}
+    for u in unites:
+        groupes.setdefault(u.ecole_id, []).append(u)
+    ecoles_filieres = [
+        {"ecole": e, "unites": sorted(groupes.get(e.id, []), key=lambda x: (x.nom, x.niveau))}
+        for e in ecoles if groupes.get(e.id)
+    ]
+    unites_json = json.dumps([u.to_dict() for u in unites])
+
+    if request.method == "POST":
+        titre       = request.form.get("titre", "").strip()
+        description = request.form.get("description", "").strip()
+        salle_id_str = request.form.get("salle_id", "").strip()
+        salle_id    = int(salle_id_str) if salle_id_str.isdigit() else None
+        date_debut_str = request.form.get("date_debut", "").strip()
+        date_fin_str   = request.form.get("date_fin", "").strip()
+        hdeb = request.form.get("heure_debut", "").strip()
+        hfin = request.form.get("heure_fin", "").strip()
+        pc_type = request.form.get("public_cible_type", "universite")
+        pc_id_str = request.form.get("public_cible_id", "").strip()
+        pc_id = int(pc_id_str) if pc_id_str.isdigit() else None
+        pc_ids_raw = request.form.getlist("public_cible_ids[]")
+        pc_ids = [int(x) for x in pc_ids_raw if x.isdigit()]
+
+        if not all([titre, description, salle_id, date_debut_str, date_fin_str, hdeb, hfin]):
+            flash("Tous les champs obligatoires doivent être remplis.", "error")
+        else:
+            try:
+                evt_data = {
+                    "titre":              titre,
+                    "description":        description,
+                    "salle_id":           salle_id,
+                    "date_debut":         date.fromisoformat(date_debut_str),
+                    "date_fin":           date.fromisoformat(date_fin_str),
+                    "heure_debut":        hdeb,
+                    "heure_fin":          hfin,
+                    "created_by":         session["user_id"],
+                    "public_cible_type":  pc_type,
+                    "public_cible_id":    pc_id,
+                    "public_cible_ids":   pc_ids,
+                }
+                ge    = GestionEvenement(bd)
+                notif = _get_notif()
+                role  = session.get("user_role")
+                res   = ge.creer_evenement(evt_data, role, notif=notif, utilisateurs=utilisateurs)
+                if res["conflit"]:
+                    c = res["conflit"]
+                    flash(f"Conflit salle avec {c['type']} « {c['label']} ».", "error")
+                elif res["statut"] == "valide":
+                    flash("Événement créé et validé.", "success")
+                    return redirect(url_for("evenements_liste"))
+                else:
+                    flash("Événement soumis — en attente de validation par un administrateur.", "info")
+                    return redirect(url_for("evenements_liste"))
+            except ValueError as e:
+                flash(str(e), "error")
+
+    return render_template(
+        "evenement_form.html", active="evenements",
+        salles=list(salles_dict.values()),
+        ecoles_filieres=ecoles_filieres,
+        unites_json=unites_json,
+        today=date.today().isoformat(),
+        role=session.get("user_role"),
+    )
+
+
+@app.route("/evenements/<int:evt_id>/modifier", methods=["GET", "POST"])
+@login_required
+def evenements_modifier(evt_id):
+    if not peut_gerer_reservations():
+        flash("Accès non autorisé.", "error")
+        return redirect(url_for("dashboard"))
+    bd, _, salles_dict, _ = get_data()
+    evt = bd.charger_evenement_par_id(evt_id)
+    if not evt:
+        flash("Événement introuvable.", "error")
+        return redirect(url_for("evenements_liste"))
+    if isinstance(evt.get("public_cible_ids"), str):
+        try:
+            evt["public_cible_ids"] = json.loads(evt["public_cible_ids"])
+        except Exception:
+            evt["public_cible_ids"] = []
+
+    ecoles  = bd.charger_toutes_ecoles()
+    unites  = bd.charger_toutes_unites()
+    groupes = {}
+    for u in unites:
+        groupes.setdefault(u.ecole_id, []).append(u)
+    ecoles_filieres = [
+        {"ecole": e, "unites": sorted(groupes.get(e.id, []), key=lambda x: (x.nom, x.niveau))}
+        for e in ecoles if groupes.get(e.id)
+    ]
+    unites_json = json.dumps([u.to_dict() for u in unites])
+
+    if request.method == "POST":
+        titre       = request.form.get("titre", "").strip()
+        description = request.form.get("description", "").strip()
+        salle_id_str = request.form.get("salle_id", "").strip()
+        salle_id    = int(salle_id_str) if salle_id_str.isdigit() else None
+        date_debut_str = request.form.get("date_debut", "").strip()
+        date_fin_str   = request.form.get("date_fin", "").strip()
+        hdeb = request.form.get("heure_debut", "").strip()
+        hfin = request.form.get("heure_fin", "").strip()
+        pc_type = request.form.get("public_cible_type", "universite")
+        pc_id_str = request.form.get("public_cible_id", "").strip()
+        pc_id = int(pc_id_str) if pc_id_str.isdigit() else None
+        pc_ids_raw = request.form.getlist("public_cible_ids[]")
+        pc_ids = [int(x) for x in pc_ids_raw if x.isdigit()]
+        if all([titre, description, salle_id, date_debut_str, date_fin_str, hdeb, hfin]):
+            ge = GestionEvenement(bd)
+            ge.modifier_evenement(evt_id, {
+                "titre": titre, "description": description, "salle_id": salle_id,
+                "date_debut": date.fromisoformat(date_debut_str),
+                "date_fin":   date.fromisoformat(date_fin_str),
+                "heure_debut": hdeb, "heure_fin": hfin,
+                "public_cible_type": pc_type,
+                "public_cible_id":   pc_id,
+                "public_cible_ids":  pc_ids,
+            })
+            flash("Événement modifié.", "success")
+            return redirect(url_for("evenements_liste"))
+        flash("Tous les champs sont obligatoires.", "error")
+
+    return render_template(
+        "evenement_form.html", active="evenements",
+        salles=list(salles_dict.values()),
+        ecoles_filieres=ecoles_filieres,
+        unites_json=unites_json,
+        evt=evt,
+        today=date.today().isoformat(),
+        role=session.get("user_role"),
+    )
+
+
+@app.route("/evenements/<int:evt_id>/valider", methods=["POST"])
+@login_required
+@admin_required
+def evenements_valider(evt_id):
+    bd, utilisateurs, _, _ = get_data()
+    ge    = GestionEvenement(bd)
+    notif = _get_notif()
+    if ge.valider_evenement(evt_id, session["user_id"], notif=notif, utilisateurs=utilisateurs):
+        flash("Événement validé.", "success")
+    else:
+        flash("Impossible de valider cet événement.", "error")
+    return redirect(url_for("evenements_liste"))
+
+
+@app.route("/evenements/<int:evt_id>/refuser", methods=["POST"])
+@login_required
+@admin_required
+def evenements_refuser(evt_id):
+    motif = request.form.get("motif", "").strip()
+    bd, utilisateurs, _, _ = get_data()
+    ge = GestionEvenement(bd)
+    if ge.refuser_evenement(evt_id, session["user_id"], motif):
+        flash("Événement refusé.", "success")
+    else:
+        flash("Événement introuvable.", "error")
+    return redirect(url_for("evenements_liste"))
 
 
 @app.errorhandler(404)

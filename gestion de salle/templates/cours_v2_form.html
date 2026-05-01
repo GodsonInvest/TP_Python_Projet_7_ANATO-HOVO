@@ -1,0 +1,294 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if cours else 'Nouveau' }} cours{% endblock %}
+{% block heading %}{{ 'Modifier' if cours else 'Nouveau cours' }}{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl space-y-5">
+
+  {% if conflits %}
+  <div class="bg-red-50 border border-red-200 rounded-xl px-5 py-4">
+    <p class="text-sm font-semibold text-red-700 mb-2">{{ conflits|length }} conflit(s) détecté(s)</p>
+    <ul class="space-y-1">
+      {% for c in conflits %}
+      <li class="text-xs text-red-600">
+        {{ c.date }} ({{ c.jour }}) {{ c.heure_debut }}–{{ c.heure_fin }} —
+        conflit avec {{ c.conflit.type }} « {{ c.conflit.label }} »
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50">
+      <p class="text-sm text-slate-500">Définissez le planning complet d'un cours sur une période. Le système vérifie automatiquement les conflits.</p>
+    </div>
+    <div class="px-6 py-6">
+      <form method="POST" id="cours-form" class="space-y-6">
+
+        <!-- ── Filière ── -->
+        <div class="space-y-3">
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">École / Filière <span class="text-red-500">*</span></label>
+          <select id="ecole-select" onchange="filterUnites()"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            <option value="">— Sélectionner une école —</option>
+            {% for ef in ecoles_filieres %}
+            <option value="{{ ef.ecole.id }}">
+              {% if ef.ecole.abreviation %}{{ ef.ecole.abreviation }} — {% endif %}{{ ef.ecole.nom }}
+            </option>
+            {% endfor %}
+          </select>
+          <div id="filieres-container" class="hidden">
+            <label class="block text-sm font-medium text-slate-700 mb-2">Filière <span class="text-red-500">*</span></label>
+            <select name="filiere_id" id="filiere-select"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+              <option value="">— Sélectionner une filière —</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- ── Enseignant (AJAX) ── -->
+        <div class="space-y-3">
+          <label class="block text-sm font-medium text-slate-700">Enseignant</label>
+          <div class="relative">
+            <input type="text" id="ens-search" placeholder="Rechercher par nom ou email…" autocomplete="off"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            <div id="ens-dropdown"
+              class="hidden absolute z-20 left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+            </div>
+          </div>
+          <input type="hidden" name="enseignant_id" id="enseignant-id-input"/>
+          <div id="ens-badge" class="hidden items-center gap-2 px-3 py-2 bg-indigo-50 border border-indigo-200 rounded-lg text-sm">
+            <span id="ens-badge-nom" class="font-medium text-indigo-800"></span>
+            <button type="button" onclick="clearEnseignant()" class="ml-auto text-indigo-400 hover:text-red-500 text-xs">✕</button>
+          </div>
+
+          <!-- Champs vacataire -->
+          <div id="vacataire-fields" class="hidden space-y-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+            <p class="text-xs font-semibold text-amber-700">Enseignant vacataire (non enregistré dans le système)</p>
+            <input type="text" name="enseignant_nom_ext" id="ens-nom-ext" placeholder="Nom complet *"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"/>
+            <input type="email" name="enseignant_email_ext" id="ens-email-ext" placeholder="Email *"
+              class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"/>
+          </div>
+        </div>
+
+        <!-- ── Matière ── -->
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Matière</label>
+          <input type="text" name="matiere" id="matiere-input"
+            value="{{ cours.matiere if cours else '' }}"
+            placeholder="Ex : Mathématiques, Algorithmique…"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+        </div>
+
+        <!-- ── Période ── -->
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Date début <span class="text-red-500">*</span></label>
+            <input type="date" name="date_debut" required min="{{ today }}"
+              value="{{ cours.date_debut if cours else '' }}"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Date fin <span class="text-red-500">*</span></label>
+            <input type="date" name="date_fin" required min="{{ today }}"
+              value="{{ cours.date_fin if cours else '' }}"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          </div>
+        </div>
+
+        <!-- ── Planning hebdomadaire ── -->
+        <div class="space-y-3">
+          <label class="block text-sm font-medium text-slate-700">Planning hebdomadaire <span class="text-red-500">*</span></label>
+          {% set JOURS = [('lundi','Lun'),('mardi','Mar'),('mercredi','Mer'),('jeudi','Jeu'),('vendredi','Ven')] %}
+          {% for jour_id, jour_label in JOURS %}
+          {% set jc = cours.jours | selectattr('jour_semaine','eq',jour_id) | list | first if cours else None %}
+          <div class="rounded-xl border border-slate-200 overflow-hidden">
+            <label class="flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-slate-50 transition-all">
+              <input type="checkbox" name="jour_{{ jour_id }}" id="cb_{{ jour_id }}"
+                class="w-4 h-4 accent-indigo-600" onchange="toggleJour('{{ jour_id }}')"
+                {% if jc %}checked{% endif %}/>
+              <span class="text-sm font-semibold text-slate-700 w-12">{{ jour_label }}</span>
+            </label>
+            <div id="row_{{ jour_id }}" class="{% if not jc %}hidden {% endif %}px-4 pb-3">
+              <div class="grid grid-cols-3 gap-3 pt-2 border-t border-slate-100">
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">Salle</label>
+                  <select name="salle_{{ jour_id }}"
+                    class="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                    <option value="">—</option>
+                    {% for s in salles %}
+                    <option value="{{ s.id }}" {% if jc and jc.salle_id == s.id %}selected{% endif %}>{{ s.nom }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">Début</label>
+                  <input type="time" name="debut_{{ jour_id }}"
+                    value="{{ jc.heure_debut if jc else '08:00' }}"
+                    class="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                </div>
+                <div>
+                  <label class="block text-xs text-slate-500 mb-1">Fin</label>
+                  <input type="time" name="fin_{{ jour_id }}"
+                    value="{{ jc.heure_fin if jc else '10:00' }}"
+                    class="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"/>
+                </div>
+              </div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+        <!-- ── Actions ── -->
+        <div class="flex items-center gap-3 pt-2">
+          <button type="submit" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+            </svg>
+            {{ 'Enregistrer' if cours else 'Créer le cours' }}
+          </button>
+          <button type="button" onclick="verifierConflits()" class="btn-secondary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            Vérifier les conflits
+          </button>
+          <a href="{{ url_for('cours_v2_liste') }}" class="btn-secondary">Annuler</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+
+  <!-- Panneau conflits AJAX -->
+  <div id="conflits-panel" class="hidden bg-amber-50 border border-amber-200 rounded-xl px-5 py-4">
+    <div class="flex items-center justify-between mb-3">
+      <p class="text-sm font-semibold text-amber-800" id="conflits-titre"></p>
+      <button onclick="document.getElementById('conflits-panel').classList.add('hidden')" class="text-amber-500 text-xs">✕</button>
+    </div>
+    <ul id="conflits-list" class="space-y-1 text-xs text-amber-700"></ul>
+  </div>
+
+</div>
+
+<script>
+const UNITES = {{ unites_json|safe }};
+
+function filterUnites() {
+  const ecoleId = parseInt(document.getElementById('ecole-select').value);
+  const select  = document.getElementById('filiere-select');
+  const cont    = document.getElementById('filieres-container');
+  select.innerHTML = '<option value="">— Sélectionner une filière —</option>';
+  UNITES.filter(u => u.ecole_id === ecoleId).forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.id;
+    opt.textContent = `${u.niveau} — ${u.nom}`;
+    select.appendChild(opt);
+  });
+  cont.classList.toggle('hidden', !ecoleId);
+}
+
+function toggleJour(jour) {
+  const cb  = document.getElementById('cb_' + jour);
+  const row = document.getElementById('row_' + jour);
+  row.classList.toggle('hidden', !cb.checked);
+}
+
+// ── Recherche enseignant AJAX ──
+let searchTimer = null;
+document.getElementById('ens-search').addEventListener('input', function() {
+  clearTimeout(searchTimer);
+  const q = this.value.trim();
+  if (q.length < 2) {
+    closeDropdown();
+    showVacataireIfEmail(q);
+    return;
+  }
+  searchTimer = setTimeout(() => rechercherEnseignant(q), 300);
+});
+
+async function rechercherEnseignant(q) {
+  const res  = await fetch(`/api/enseignants/recherche?q=${encodeURIComponent(q)}`);
+  const data = await res.json();
+  const dd   = document.getElementById('ens-dropdown');
+  dd.innerHTML = '';
+  if (data.length === 0) {
+    showVacataireIfEmail(document.getElementById('ens-search').value);
+    dd.classList.add('hidden');
+    return;
+  }
+  data.forEach(e => {
+    const div = document.createElement('div');
+    div.className = 'px-4 py-2.5 hover:bg-indigo-50 cursor-pointer text-sm border-b border-slate-50 last:border-0';
+    div.innerHTML = `<span class="font-medium text-slate-800">${e.nom}</span>
+      <span class="text-xs text-slate-400 ml-2">${e.email}</span>`;
+    div.onclick = () => selectEnseignant(e);
+    dd.appendChild(div);
+  });
+  dd.classList.remove('hidden');
+}
+
+function selectEnseignant(e) {
+  document.getElementById('enseignant-id-input').value = e.id;
+  document.getElementById('ens-search').value = '';
+  document.getElementById('ens-badge-nom').textContent = `${e.nom} (${e.email})`;
+  document.getElementById('ens-badge').classList.remove('hidden');
+  document.getElementById('ens-badge').classList.add('flex');
+  document.getElementById('vacataire-fields').classList.add('hidden');
+  if (e.matieres && e.matieres.length === 1) {
+    document.getElementById('matiere-input').value = e.matieres[0];
+  }
+  closeDropdown();
+}
+
+function clearEnseignant() {
+  document.getElementById('enseignant-id-input').value = '';
+  document.getElementById('ens-badge').classList.add('hidden');
+  document.getElementById('ens-badge').classList.remove('flex');
+  document.getElementById('ens-search').value = '';
+}
+
+function showVacataireIfEmail(val) {
+  const isEmail = val.includes('@');
+  document.getElementById('vacataire-fields').classList.toggle('hidden', !isEmail);
+  if (isEmail) document.getElementById('ens-email-ext').value = val;
+}
+
+function closeDropdown() {
+  document.getElementById('ens-dropdown').classList.add('hidden');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#ens-search') && !e.target.closest('#ens-dropdown')) closeDropdown();
+});
+
+// ── Vérification AJAX des conflits ──
+async function verifierConflits() {
+  const form = document.getElementById('cours-form');
+  const data = new FormData(form);
+  const res  = await fetch('{{ url_for("cours_v2_verifier_conflits") }}', {method:'POST', body:data});
+  const json = await res.json();
+  const panel = document.getElementById('conflits-panel');
+  const titre = document.getElementById('conflits-titre');
+  const list  = document.getElementById('conflits-list');
+  list.innerHTML = '';
+  if (json.nb_conflits === 0) {
+    titre.textContent = '✅ Aucun conflit détecté — vous pouvez créer le cours.';
+    titre.className = 'text-sm font-semibold text-emerald-700';
+    panel.className = 'bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4';
+  } else {
+    titre.textContent = `⚠ ${json.nb_conflits} conflit(s) détecté(s)`;
+    titre.className = 'text-sm font-semibold text-amber-800';
+    panel.className = 'bg-amber-50 border border-amber-200 rounded-xl px-5 py-4';
+    json.conflits.forEach(c => {
+      const li = document.createElement('li');
+      li.textContent = `${c.date} (${c.jour}) ${c.heure_debut}–${c.heure_fin} — conflit avec ${c.conflit_type} « ${c.conflit_label} »`;
+      list.appendChild(li);
+    });
+  }
+  panel.classList.remove('hidden');
+}
+</script>
+{% endblock %}

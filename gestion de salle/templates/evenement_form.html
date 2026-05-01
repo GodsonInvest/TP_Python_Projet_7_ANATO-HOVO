@@ -1,0 +1,240 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if evt else 'Nouvel' }} événement{% endblock %}
+{% block heading %}{{ 'Modifier' if evt else 'Nouvel événement' }}{% endblock %}
+
+{% block content %}
+<div class="max-w-xl space-y-5">
+
+  {% if role == 'responsable' %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex items-center gap-3">
+    <svg class="w-5 h-5 text-amber-500 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+    </svg>
+    <p class="text-sm text-amber-800">Votre demande sera soumise à validation par un administrateur avant publication.</p>
+  </div>
+  {% endif %}
+
+  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div class="px-6 py-6">
+      <form method="POST" class="space-y-5">
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Titre <span class="text-red-500">*</span></label>
+          <input type="text" name="titre" required value="{{ evt.titre if evt else '' }}"
+            placeholder="Ex : Journée portes ouvertes, Conférence…"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Description <span class="text-red-500">*</span></label>
+          <textarea name="description" required rows="3"
+            placeholder="Décrivez l'événement…"
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all resize-none">{{ evt.description if evt else '' }}</textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-slate-700 mb-1.5">Salle <span class="text-red-500">*</span></label>
+          <select name="salle_id" required
+            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+            <option value="">— Sélectionner —</option>
+            {% for s in salles %}
+            <option value="{{ s.id }}" {% if evt and evt.salle_id == s.id %}selected{% endif %}>{{ s.nom }} ({{ s.capacite }} places)</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Date début <span class="text-red-500">*</span></label>
+            <input type="date" name="date_debut" required min="{{ today }}"
+              value="{{ evt.date_debut if evt else '' }}"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Date fin <span class="text-red-500">*</span></label>
+            <input type="date" name="date_fin" required min="{{ today }}"
+              value="{{ evt.date_fin if evt else '' }}"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Heure début <span class="text-red-500">*</span></label>
+            <input type="time" name="heure_debut" value="{{ evt.heure_debut if evt else '08:00' }}"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Heure fin <span class="text-red-500">*</span></label>
+            <input type="time" name="heure_fin" value="{{ evt.heure_fin if evt else '18:00' }}"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          </div>
+        </div>
+
+        <!-- Public cible -->
+        <div class="space-y-3">
+          <label class="block text-sm font-medium text-slate-700">Public concerné <span class="text-red-500">*</span></label>
+
+          {% set pc_type = evt.public_cible_type if evt else 'universite' %}
+
+          <!-- Choix du périmètre -->
+          <div class="grid grid-cols-3 gap-2">
+            <label class="flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition
+              {{ 'border-indigo-400 bg-indigo-50' if pc_type == 'universite' else 'border-slate-200 bg-white hover:bg-slate-50' }}"
+              id="lbl-universite">
+              <input type="radio" name="public_cible_type" value="universite"
+                {% if pc_type == 'universite' %}checked{% endif %}
+                onchange="switchCible('universite')" class="accent-indigo-600"/>
+              <span class="text-xs font-semibold text-slate-700">Université entière</span>
+            </label>
+            <label class="flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition
+              {{ 'border-indigo-400 bg-indigo-50' if pc_type == 'ecole' else 'border-slate-200 bg-white hover:bg-slate-50' }}"
+              id="lbl-ecole">
+              <input type="radio" name="public_cible_type" value="ecole"
+                {% if pc_type == 'ecole' %}checked{% endif %}
+                onchange="switchCible('ecole')" class="accent-indigo-600"/>
+              <span class="text-xs font-semibold text-slate-700">École(s) / Faculté(s)</span>
+            </label>
+            <label class="flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition
+              {{ 'border-indigo-400 bg-indigo-50' if pc_type == 'filiere' else 'border-slate-200 bg-white hover:bg-slate-50' }}"
+              id="lbl-filiere">
+              <input type="radio" name="public_cible_type" value="filiere"
+                {% if pc_type == 'filiere' %}checked{% endif %}
+                onchange="switchCible('filiere')" class="accent-indigo-600"/>
+              <span class="text-xs font-semibold text-slate-700">Une filière</span>
+            </label>
+          </div>
+
+          <!-- Hint université -->
+          <p id="cible-universite-hint" class="text-xs text-slate-400 {{ 'hidden' if pc_type != 'universite' else '' }}">
+            Tous les étudiants, enseignants et responsables recevront la notification.
+          </p>
+
+          <!-- Cases à cocher écoles (multi-sélection) -->
+          <div id="cible-ecoles-row" class="{{ '' if pc_type == 'ecole' else 'hidden' }}">
+            <p class="text-xs text-slate-500 mb-2">Sélectionnez une ou plusieurs écoles / facultés :</p>
+            <div class="rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden max-h-52 overflow-y-auto">
+              {% for ef in ecoles_filieres %}
+              <label class="flex items-center gap-3 px-4 py-2.5 cursor-pointer hover:bg-indigo-50/60 transition">
+                <input type="checkbox" name="public_cible_ids[]" value="{{ ef.ecole.id }}"
+                  class="w-4 h-4 accent-indigo-600 ecole-checkbox"
+                  onchange="updateEcolesCounter()"/>
+                <span class="text-sm text-slate-700">
+                  {% if ef.ecole.abreviation %}<span class="font-semibold text-indigo-700">{{ ef.ecole.abreviation }}</span> — {% endif %}
+                  {{ ef.ecole.nom }}
+                </span>
+              </label>
+              {% endfor %}
+            </div>
+            <p class="text-xs text-slate-400 mt-1.5" id="ecoles-counter">Aucune école sélectionnée</p>
+          </div>
+
+          <!-- Sélection filière (école → filière) -->
+          <div id="cible-filiere-section" class="{{ '' if pc_type == 'filiere' else 'hidden' }}">
+            <select id="cible-ecole-select" onchange="filterCibleFilieres()"
+              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all mb-2">
+              <option value="">— Sélectionner une école —</option>
+              {% for ef in ecoles_filieres %}
+              <option value="{{ ef.ecole.id }}"
+                {% if evt and evt.public_cible_type == 'filiere' %}
+                  {# On ne peut pas pré-sélectionner l'école ici sans JS, l'init le fera #}
+                {% endif %}>
+                {% if ef.ecole.abreviation %}{{ ef.ecole.abreviation }} — {% endif %}{{ ef.ecole.nom }}
+              </option>
+              {% endfor %}
+            </select>
+            <div id="cible-filiere-row" class="hidden">
+              <select id="cible-filiere-select" name="public_cible_id" onchange="updateFiliereId()"
+                class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+                <option value="">— Sélectionner une filière —</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3 pt-2">
+          <button type="submit" class="btn-primary">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            {{ 'Enregistrer' if evt else ('Soumettre' if role == 'responsable' else 'Créer') }}
+          </button>
+          <a href="{{ url_for('evenements_liste') }}" class="btn-secondary">Annuler</a>
+        </div>
+
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+const UNITES_EVT    = {{ unites_json|safe }};
+const PC_IDS_SAVED  = {{ (evt.public_cible_ids if evt and evt.public_cible_type == 'ecole' and evt.public_cible_ids else [])|tojson }};
+const PC_FILIERE_ID = {{ (evt.public_cible_id if evt and evt.public_cible_type == 'filiere' and evt.public_cible_id else none)|tojson }};
+
+// ── Onglets périmètre ──────────────────────────────────────────────────────
+function switchCible(type) {
+  document.getElementById('cible-universite-hint').classList.toggle('hidden', type !== 'universite');
+  document.getElementById('cible-ecoles-row').classList.toggle('hidden',      type !== 'ecole');
+  document.getElementById('cible-filiere-section').classList.toggle('hidden', type !== 'filiere');
+
+  ['universite','ecole','filiere'].forEach(t => {
+    const lbl = document.getElementById('lbl-' + t);
+    lbl.classList.toggle('border-indigo-400', t === type);
+    lbl.classList.toggle('bg-indigo-50',      t === type);
+    lbl.classList.toggle('border-slate-200',  t !== type);
+    lbl.classList.toggle('bg-white',          t !== type);
+  });
+}
+
+// ── Compteur d'écoles cochées ──────────────────────────────────────────────
+function updateEcolesCounter() {
+  const checked = document.querySelectorAll('.ecole-checkbox:checked').length;
+  const el = document.getElementById('ecoles-counter');
+  el.textContent = checked === 0 ? 'Aucune école sélectionnée'
+    : checked === 1 ? '1 école sélectionnée'
+    : `${checked} écoles sélectionnées`;
+}
+
+// ── Cascade école → filière ────────────────────────────────────────────────
+function filterCibleFilieres() {
+  const ecoleId    = parseInt(document.getElementById('cible-ecole-select').value);
+  const filiereRow = document.getElementById('cible-filiere-row');
+  const sel        = document.getElementById('cible-filiere-select');
+
+  sel.innerHTML = '<option value="">— Sélectionner une filière —</option>';
+  if (ecoleId) {
+    UNITES_EVT.filter(u => u.ecole_id === ecoleId).forEach(u => {
+      const o = document.createElement('option');
+      o.value = u.id; o.textContent = `${u.niveau} — ${u.nom}`;
+      sel.appendChild(o);
+    });
+  }
+  filiereRow.classList.toggle('hidden', !ecoleId);
+}
+
+function updateFiliereId() { /* select has name, nothing extra needed */ }
+
+// ── Init en mode édition ───────────────────────────────────────────────────
+(function init() {
+  const type = document.querySelector('input[name="public_cible_type"]:checked')?.value;
+  if (!type || type === 'universite') return;
+
+  if (type === 'ecole' && PC_IDS_SAVED.length) {
+    document.querySelectorAll('.ecole-checkbox').forEach(cb => {
+      if (PC_IDS_SAVED.includes(parseInt(cb.value))) cb.checked = true;
+    });
+    updateEcolesCounter();
+  }
+
+  if (type === 'filiere' && PC_FILIERE_ID) {
+    // Trouver l'école de cette filière et pré-sélectionner le cascade
+    const unite = UNITES_EVT.find(u => u.id === PC_FILIERE_ID);
+    if (unite) {
+      const ecoleEl = document.getElementById('cible-ecole-select');
+      ecoleEl.value = unite.ecole_id;
+      filterCibleFilieres();
+      document.getElementById('cible-filiere-select').value = PC_FILIERE_ID;
+    }
+  }
+})();
+</script>
+{% endblock %}

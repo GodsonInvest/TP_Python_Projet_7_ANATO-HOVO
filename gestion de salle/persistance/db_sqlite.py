@@ -126,6 +126,61 @@ class BaseDonneesSQLite:
             heure_fin       TEXT    NOT NULL,
             FOREIGN KEY (cours_id) REFERENCES reservation_cours(id) ON DELETE CASCADE
         );
+
+        CREATE TABLE IF NOT EXISTS cours (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            filiere_id           INTEGER NOT NULL,
+            enseignant_id        INTEGER,
+            enseignant_nom_ext   TEXT    NOT NULL DEFAULT '',
+            enseignant_email_ext TEXT    NOT NULL DEFAULT '',
+            matiere              TEXT    NOT NULL DEFAULT '',
+            date_debut           TEXT    NOT NULL,
+            date_fin             TEXT    NOT NULL,
+            created_by           INTEGER NOT NULL,
+            created_at           TEXT    NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS cours_jours (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            cours_id     INTEGER NOT NULL,
+            jour_semaine TEXT    NOT NULL,
+            salle_id     INTEGER NOT NULL,
+            heure_debut  TEXT    NOT NULL,
+            heure_fin    TEXT    NOT NULL,
+            FOREIGN KEY (cours_id) REFERENCES cours(id) ON DELETE CASCADE
+        );
+
+        CREATE TABLE IF NOT EXISTS compositions (
+            id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+            filiere_id           INTEGER NOT NULL,
+            enseignant_id        INTEGER,
+            enseignant_nom_ext   TEXT    NOT NULL DEFAULT '',
+            enseignant_email_ext TEXT    NOT NULL DEFAULT '',
+            matiere              TEXT    NOT NULL DEFAULT '',
+            salle_id             INTEGER NOT NULL,
+            date                 TEXT    NOT NULL,
+            heure_debut          TEXT    NOT NULL,
+            heure_fin            TEXT    NOT NULL,
+            sur_cours_existant   INTEGER NOT NULL DEFAULT 0,
+            created_by           INTEGER NOT NULL,
+            created_at           TEXT    NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS evenements (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            titre        TEXT    NOT NULL,
+            description  TEXT    NOT NULL DEFAULT '',
+            salle_id     INTEGER NOT NULL,
+            date_debut   TEXT    NOT NULL,
+            date_fin     TEXT    NOT NULL,
+            heure_debut  TEXT    NOT NULL,
+            heure_fin    TEXT    NOT NULL,
+            statut       TEXT    NOT NULL DEFAULT 'en_attente',
+            motif_refus  TEXT    NOT NULL DEFAULT '',
+            created_by   INTEGER NOT NULL,
+            validated_by INTEGER,
+            created_at   TEXT    NOT NULL
+        );
         """
         with self._connexion() as conn:
             conn.executescript(ddl)
@@ -140,6 +195,9 @@ class BaseDonneesSQLite:
             ("unites_formation","abreviation",         "TEXT NOT NULL DEFAULT ''"),
             ("reservations",    "enseignant_id",       "INTEGER"),
             ("reservations",    "cours_id",            "INTEGER"),
+            ("evenements",      "public_cible_type",   "TEXT NOT NULL DEFAULT 'universite'"),
+            ("evenements",      "public_cible_id",     "INTEGER"),
+            ("evenements",      "public_cible_ids",    "TEXT NOT NULL DEFAULT '[]'"),
         ]
         with self._connexion() as conn:
             for table, col, typ in migrations:
@@ -559,6 +617,236 @@ class BaseDonneesSQLite:
     def supprimer_cours(self, cours_id: int) -> bool:
         with self._connexion() as conn:
             cur = conn.execute("DELETE FROM reservation_cours WHERE id=?", (cours_id,))
+        return cur.rowcount > 0
+
+    # ── Cours (nouveau système avec filière) ──────────────────────────────────────
+
+    def sauvegarder_cours_v2(self, cours: dict) -> int:
+        jours = cours.get("jours", [])
+        params = (
+            cours["filiere_id"],
+            cours.get("enseignant_id"),
+            cours.get("enseignant_nom_ext", ""),
+            cours.get("enseignant_email_ext", ""),
+            cours.get("matiere", ""),
+            cours["date_debut"],
+            cours["date_fin"],
+            cours["created_by"],
+            cours.get("created_at", ""),
+        )
+        with self._connexion() as conn:
+            if cours.get("id") is None:
+                cur = conn.execute(
+                    "INSERT INTO cours (filiere_id, enseignant_id, enseignant_nom_ext, "
+                    "enseignant_email_ext, matiere, date_debut, date_fin, created_by, created_at) "
+                    "VALUES (?,?,?,?,?,?,?,?,?)",
+                    params,
+                )
+                cours["id"] = cur.lastrowid
+            else:
+                conn.execute(
+                    "UPDATE cours SET filiere_id=?, enseignant_id=?, enseignant_nom_ext=?, "
+                    "enseignant_email_ext=?, matiere=?, date_debut=?, date_fin=?, "
+                    "created_by=?, created_at=? WHERE id=?",
+                    (*params, cours["id"]),
+                )
+                conn.execute("DELETE FROM cours_jours WHERE cours_id=?", (cours["id"],))
+            for j in jours:
+                conn.execute(
+                    "INSERT INTO cours_jours (cours_id, jour_semaine, salle_id, heure_debut, heure_fin) "
+                    "VALUES (?,?,?,?,?)",
+                    (cours["id"], j["jour_semaine"], j["salle_id"], j["heure_debut"], j["heure_fin"]),
+                )
+        return cours["id"]
+
+    def charger_cours_v2_par_id(self, cours_id: int) -> Optional[dict]:
+        with self._connexion() as conn:
+            row = conn.execute("SELECT * FROM cours WHERE id=?", (cours_id,)).fetchone()
+            if not row:
+                return None
+            c = dict(row)
+            jours = conn.execute(
+                "SELECT * FROM cours_jours WHERE cours_id=? ORDER BY id", (cours_id,)
+            ).fetchall()
+            c["jours"] = [dict(j) for j in jours]
+        return c
+
+    def charger_tous_cours_v2(self) -> list:
+        with self._connexion() as conn:
+            rows = conn.execute("SELECT * FROM cours ORDER BY date_debut DESC").fetchall()
+            result = []
+            for row in rows:
+                c = dict(row)
+                jours = conn.execute(
+                    "SELECT * FROM cours_jours WHERE cours_id=? ORDER BY id", (c["id"],)
+                ).fetchall()
+                c["jours"] = [dict(j) for j in jours]
+                result.append(c)
+        return result
+
+    def supprimer_cours_v2(self, cours_id: int) -> bool:
+        with self._connexion() as conn:
+            cur = conn.execute("DELETE FROM cours WHERE id=?", (cours_id,))
+        return cur.rowcount > 0
+
+    def verifier_conflit_planning(
+        self,
+        salle_id: int,
+        d: date,
+        heure_debut: str,
+        heure_fin: str,
+        exclure_cours_id: Optional[int] = None,
+        exclure_comp_id: Optional[int] = None,
+        exclure_evt_id: Optional[int] = None,
+    ) -> Optional[dict]:
+        """Vérifie un conflit sur salle/date/horaire dans cours, compositions et evenements."""
+        _JOURS = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+        jour_sem = _JOURS[d.weekday()]
+        d_str = d.isoformat()
+        with self._connexion() as conn:
+            sql = (
+                "SELECT c.id AS cours_id, c.matiere, cj.salle_id, cj.heure_debut, cj.heure_fin "
+                "FROM cours_jours cj JOIN cours c ON cj.cours_id = c.id "
+                "WHERE cj.salle_id=? AND cj.jour_semaine=? "
+                "AND c.date_debut<=? AND c.date_fin>=? "
+                "AND cj.heure_debut<? AND cj.heure_fin>?"
+            )
+            args: list = [salle_id, jour_sem, d_str, d_str, heure_fin, heure_debut]
+            if exclure_cours_id is not None:
+                sql += " AND cj.cours_id!=?"
+                args.append(exclure_cours_id)
+            row = conn.execute(sql, args).fetchone()
+            if row:
+                return {"type": "cours", "id": row["cours_id"], "label": row["matiere"] or "cours",
+                        "heure_debut": row["heure_debut"], "heure_fin": row["heure_fin"]}
+
+            sql = ("SELECT * FROM compositions WHERE salle_id=? AND date=? "
+                   "AND heure_debut<? AND heure_fin>?")
+            args = [salle_id, d_str, heure_fin, heure_debut]
+            if exclure_comp_id is not None:
+                sql += " AND id!=?"
+                args.append(exclure_comp_id)
+            row = conn.execute(sql, args).fetchone()
+            if row:
+                return {"type": "composition", "id": row["id"], "label": row["matiere"] or "composition",
+                        "heure_debut": row["heure_debut"], "heure_fin": row["heure_fin"]}
+
+            sql = ("SELECT * FROM evenements WHERE salle_id=? AND date_debut<=? AND date_fin>=? "
+                   "AND heure_debut<? AND heure_fin>? AND statut='valide'")
+            args = [salle_id, d_str, d_str, heure_fin, heure_debut]
+            if exclure_evt_id is not None:
+                sql += " AND id!=?"
+                args.append(exclure_evt_id)
+            row = conn.execute(sql, args).fetchone()
+            if row:
+                return {"type": "evenement", "id": row["id"], "label": row["titre"],
+                        "heure_debut": row["heure_debut"], "heure_fin": row["heure_fin"]}
+        return None
+
+    # ── Compositions ──────────────────────────────────────────────────────────────
+
+    def sauvegarder_composition(self, comp: dict) -> int:
+        params = (
+            comp["filiere_id"],
+            comp.get("enseignant_id"),
+            comp.get("enseignant_nom_ext", ""),
+            comp.get("enseignant_email_ext", ""),
+            comp.get("matiere", ""),
+            comp["salle_id"],
+            comp["date"],
+            comp["heure_debut"],
+            comp["heure_fin"],
+            int(comp.get("sur_cours_existant", 0)),
+            comp["created_by"],
+            comp.get("created_at", ""),
+        )
+        with self._connexion() as conn:
+            if comp.get("id") is None:
+                cur = conn.execute(
+                    "INSERT INTO compositions (filiere_id, enseignant_id, enseignant_nom_ext, "
+                    "enseignant_email_ext, matiere, salle_id, date, heure_debut, heure_fin, "
+                    "sur_cours_existant, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    params,
+                )
+                comp["id"] = cur.lastrowid
+            else:
+                conn.execute(
+                    "UPDATE compositions SET filiere_id=?, enseignant_id=?, enseignant_nom_ext=?, "
+                    "enseignant_email_ext=?, matiere=?, salle_id=?, date=?, heure_debut=?, heure_fin=?, "
+                    "sur_cours_existant=?, created_by=?, created_at=? WHERE id=?",
+                    (*params, comp["id"]),
+                )
+        return comp["id"]
+
+    def charger_composition_par_id(self, comp_id: int) -> Optional[dict]:
+        with self._connexion() as conn:
+            row = conn.execute("SELECT * FROM compositions WHERE id=?", (comp_id,)).fetchone()
+        return dict(row) if row else None
+
+    def charger_toutes_compositions(self) -> list:
+        with self._connexion() as conn:
+            rows = conn.execute("SELECT * FROM compositions ORDER BY date DESC").fetchall()
+        return [dict(r) for r in rows]
+
+    def supprimer_composition(self, comp_id: int) -> bool:
+        with self._connexion() as conn:
+            cur = conn.execute("DELETE FROM compositions WHERE id=?", (comp_id,))
+        return cur.rowcount > 0
+
+    # ── Événements ────────────────────────────────────────────────────────────────
+
+    def sauvegarder_evenement(self, evt: dict) -> int:
+        import json as _json
+        params = (
+            evt["titre"],
+            evt.get("description", ""),
+            evt["salle_id"],
+            evt["date_debut"],
+            evt["date_fin"],
+            evt["heure_debut"],
+            evt["heure_fin"],
+            evt.get("statut", "en_attente"),
+            evt.get("motif_refus", ""),
+            evt["created_by"],
+            evt.get("validated_by"),
+            evt.get("created_at", ""),
+            evt.get("public_cible_type", "universite"),
+            evt.get("public_cible_id"),
+            _json.dumps(evt.get("public_cible_ids") or []),
+        )
+        with self._connexion() as conn:
+            if evt.get("id") is None:
+                cur = conn.execute(
+                    "INSERT INTO evenements (titre, description, salle_id, date_debut, date_fin, "
+                    "heure_debut, heure_fin, statut, motif_refus, created_by, validated_by, created_at, "
+                    "public_cible_type, public_cible_id, public_cible_ids) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    params,
+                )
+                evt["id"] = cur.lastrowid
+            else:
+                conn.execute(
+                    "UPDATE evenements SET titre=?, description=?, salle_id=?, date_debut=?, date_fin=?, "
+                    "heure_debut=?, heure_fin=?, statut=?, motif_refus=?, created_by=?, "
+                    "validated_by=?, created_at=?, public_cible_type=?, public_cible_id=?, "
+                    "public_cible_ids=? WHERE id=?",
+                    (*params, evt["id"]),
+                )
+        return evt["id"]
+
+    def charger_evenement_par_id(self, evt_id: int) -> Optional[dict]:
+        with self._connexion() as conn:
+            row = conn.execute("SELECT * FROM evenements WHERE id=?", (evt_id,)).fetchone()
+        return dict(row) if row else None
+
+    def charger_tous_evenements(self) -> list:
+        with self._connexion() as conn:
+            rows = conn.execute("SELECT * FROM evenements ORDER BY date_debut DESC").fetchall()
+        return [dict(r) for r in rows]
+
+    def supprimer_evenement(self, evt_id: int) -> bool:
+        with self._connexion() as conn:
+            cur = conn.execute("DELETE FROM evenements WHERE id=?", (evt_id,))
         return cur.rowcount > 0
 
     # ── Configuration SMTP ────────────────────────────────────────────────────────
