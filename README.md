@@ -2,8 +2,8 @@
 
 > Projet académique Python (TP Projet 7) — ANATO Amen Godson Cossi & HOVO  
 > Application web complète de gestion des salles, cours, compositions et événements pour un établissement universitaire.  
-> 📄 [Cahier des charges initial (Notion)](https://www.notion.so/Cahier-des-Charges-Version-Initiale-35254b4737808030b138f4b1083ce6ba)  
-> 📄 [Cahier des charges final (Notion)](https://www.notion.so/Cahier-des-Charges-Mis-Jour-34854b47378080c4915ac273609da4d2)
+> [Cahier des charges initial (Notion)](https://www.notion.so/Cahier-des-Charges-Version-Initiale-35254b4737808030b138f4b1083ce6ba)  
+> [Cahier des charges final (Notion)](https://www.notion.so/Cahier-des-Charges-Mis-Jour-34854b47378080c4915ac273609da4d2)
 
 ---
 
@@ -34,7 +34,9 @@
 - **Recherche d'enseignant avec autocomplétion AJAX** et gestion des enseignants **vacataires**
 - **Notifications email HTML** automatiques aux personnes concernées pour chaque activité
 - Workflow de **validation admin** pour les événements créés par les responsables
+- **Hub de navigation unifié** (`/reservations/hub`) regroupant les 4 types d'activités en une page centrale
 - Planning hebdomadaire unifié avec **filtrage par type** (réservations, cours, compositions, événements)
+- Cours planifiables du **lundi au samedi**
 - Déploiement prêt pour **Render.com** via Gunicorn
 - Suite de **101 tests pytest** couvrant les 5 blocs du cahier des charges
 
@@ -84,10 +86,10 @@ TP_Python_Projet_7_ANATO&HOVO/
     │   ├── db_sqlite.py                    # Backend SQLite — 10 tables, migrations auto
     │   └── db_json.py                      # Backend JSON (fallback/tests)
     │
-    ├── templates/                          # Interface web Jinja2 + Tailwind CSS (31 fichiers)
+    ├── templates/                          # Interface web Jinja2 + Tailwind CSS (32 fichiers)
     │   │
     │   ├── — Authentification —
-    │   ├── base.html                       # Layout commun (nav, flash messages, onglets)
+    │   ├── base.html                       # Layout commun (nav unifiée, flash messages)
     │   ├── login.html                      # Connexion (lien "Mot de passe oublié ?")
     │   ├── inscription.html                # Inscription étudiant/enseignant + sélection filière
     │   ├── otp_verification.html           # Saisie code OTP inscription (6 chiffres, 5 min)
@@ -95,7 +97,7 @@ TP_Python_Projet_7_ANATO&HOVO/
     │   ├── mot_de_passe_reset.html         # OTP reset + formulaire nouveau mot de passe
     │   │
     │   ├── — Tableau de bord & Profil —
-    │   ├── dashboard.html                  # Stats, prochains cours, compos à venir (étudiant),
+    │   ├── dashboard.html                  # Stats, hub réservations, compos à venir (étudiant),
     │   │                                   #   événements en attente (admin), refus (responsable)
     │   ├── profil.html                     # Profil utilisateur + gestion multi-matières
     │   ├── parametres.html                 # Config SMTP, email admin, test d'envoi (admin)
@@ -105,16 +107,21 @@ TP_Python_Projet_7_ANATO&HOVO/
     │   ├── salle_form.html                 # Ajout / modification salle
     │   ├── salle_detail.html               # Détail salle + planning hebdomadaire
     │   │
+    │   ├── — Hub de navigation —
+    │   ├── reservations_hub.html           # Page centrale : 4 cartes (Cours, Composition,
+    │   │                                   #   Événement, Réservation ponctuelle) avec compteurs
+    │   │                                   #   et droits d'accès par carte
+    │   │
     │   ├── — Réservations ponctuelles —
     │   ├── reservations.html               # Liste des réservations avec filtres
     │   ├── reservation_form.html           # Création (école → filière → enseignant → matière)
     │   ├── reservation_modifier.html       # Modification réservation
     │   │
-    │   ├── — Cours récurrents —
+    │   ├── — Cours récurrents (lundi → samedi) —
     │   ├── cours_v2.html                   # Liste des cours (actifs / terminés, planning hebdo)
-    │   ├── cours_v2_form.html              # Création / modification cours (AJAX, jours, salles,
+    │   ├── cours_v2_form.html              # Création / modification cours (AJAX, jours lun-sam,
     │   │                                   #   vérification conflits, enseignant vacataire)
-    │   ├── cours.html                      # Liste cours v1 (legacy)
+    │   ├── cours.html                      # Liste cours v1 (legacy — redirige vers /cours/v2)
     │   ├── cours_form.html                 # Formulaire cours v1 (legacy)
     │   │
     │   ├── — Compositions (Examens) —
@@ -324,6 +331,7 @@ Un **bouton de test** permet d'envoyer un email de vérification pour valider la
 Les cours permettent de planifier des séances récurrentes sur une période (date début → date fin), avec un ou plusieurs jours de la semaine, chacun dans une salle et un créneau horaire définis.
 
 - **Création** via formulaire avec sélection cascade école → filière, recherche AJAX d'enseignant, support vacataire
+- **Jours disponibles : lundi, mardi, mercredi, jeudi, vendredi, samedi**
 - **Vérification AJAX des conflits** avant soumission (bouton "Vérifier les conflits")
 - **Détection de conflits** automatique sur toutes les activités existantes (cours, compositions, événements, réservations)
 - **Annulation** du cours (status archivé)
@@ -382,6 +390,19 @@ evenements
   created_by, validated_by, created_at
 ```
 
+### Hub de navigation unifié (`/reservations/hub`)
+
+La navigation a été restructurée : un seul lien **Réservations** dans le menu latéral mène à une page centrale qui regroupe les 4 types d'activités sous forme de cartes cliquables.
+
+| Carte | Icône | Accès | Compteur affiché |
+|-------|-------|-------|-----------------|
+| Cours | academic-cap | Admin + Responsable | Cours actifs |
+| Composition | document-text | Admin + Responsable + Enseignant | Compositions à venir |
+| Événement | calendar | Admin + Responsable | Événements validés |
+| Réservation ponctuelle | building-office | Admin + Responsable | Réservations confirmées |
+
+Chaque carte affiche le compteur d'entrées actives, les boutons **Voir tout** et **Nouveau**, et un message **Accès restreint** si l'utilisateur n'a pas les droits. Les étudiants accèdent directement à la liste des réservations, sans passer par le hub.
+
 ### Recherche enseignant avec autocomplétion AJAX
 
 Tous les formulaires de cours, composition et réservation disposent d'un **champ de recherche AJAX** pour les enseignants :
@@ -389,7 +410,7 @@ Tous les formulaires de cours, composition et réservation disposent d'un **cham
 - Frappe d'au moins 2 caractères → requête `GET /api/enseignants/recherche?q=…`
 - Dropdown avec nom + email, délai anti-rebond 300 ms
 - Badge de confirmation à la sélection, bouton ✕ pour effacer
-- **Détection vacataire** : si l'utilisateur tape un `@` sans correspondance → affichage automatique des champs nom et email d'un enseignant externe (non inscrit dans le système)
+- **Détection vacataire** : si l'utilisateur tape un `@` sans correspondance, les champs nom et email d'un enseignant externe s'affichent automatiquement
 
 ### Planning hebdomadaire unifié
 
@@ -446,6 +467,12 @@ Le service `NotificationEmail` envoie désormais des emails HTML pour :
 | GET, POST | `/salles/ajouter` | Ajout d'une salle | Admin |
 | GET, POST | `/salles/<id>/modifier` | Modification d'une salle | Admin |
 | POST | `/salles/<id>/supprimer` | Suppression d'une salle | Admin |
+
+### Hub de navigation
+
+| Méthode | Route | Description | Accès |
+|---------|-------|-------------|-------|
+| GET | `/reservations/hub` | Page centrale — 4 cartes avec compteurs | Responsable / Admin / Enseignant |
 
 ### Réservations ponctuelles
 
