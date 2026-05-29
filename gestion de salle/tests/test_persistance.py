@@ -42,7 +42,7 @@ def echec(msg: str):
 
 # ─────────────────────────── Scenario de test ──────────────────────────────────
 
-def tester_backend(bd, nom_backend: str):
+def _tester_backend(bd, nom_backend: str):
     """Execute tous les tests sur un backend (SQLite ou JSON)."""
 
     print(f"\n{'='*55}")
@@ -229,12 +229,12 @@ def main():
         # --- SQLite ---
         chemin_db = os.path.join(tmp, "test.db")
         bd_sqlite = BaseDonneesSQLite(chemin_db=chemin_db)
-        tester_backend(bd_sqlite, "SQLite")
+        _tester_backend(bd_sqlite, "SQLite")
 
         # --- JSON ---
         dossier_json = os.path.join(tmp, "json")
         bd_json = BaseDonneesJSON(dossier_data=dossier_json)
-        tester_backend(bd_json, "JSON")
+        _tester_backend(bd_json, "JSON")
 
     print("\n" + "="*55)
     print("  Tous les tests de persistance sont passes !")

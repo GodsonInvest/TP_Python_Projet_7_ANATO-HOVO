@@ -101,7 +101,7 @@
         <!-- ── Planning hebdomadaire ── -->
         <div class="space-y-3">
           <label class="block text-sm font-medium text-slate-700">Planning hebdomadaire <span class="text-red-500">*</span></label>
-          {% set JOURS = [('lundi','Lun'),('mardi','Mar'),('mercredi','Mer'),('jeudi','Jeu'),('vendredi','Ven')] %}
+          {% set JOURS = [('lundi','Lun'),('mardi','Mar'),('mercredi','Mer'),('jeudi','Jeu'),('vendredi','Ven'),('samedi','Sam')] %}
           {% for jour_id, jour_label in JOURS %}
           {% set jc = cours.jours | selectattr('jour_semaine','eq',jour_id) | list | first if cours else None %}
           <div class="rounded-xl border border-slate-200 overflow-hidden">
@@ -275,11 +275,11 @@ async function verifierConflits() {
   const list  = document.getElementById('conflits-list');
   list.innerHTML = '';
   if (json.nb_conflits === 0) {
-    titre.textContent = '✅ Aucun conflit détecté — vous pouvez créer le cours.';
+    titre.textContent = 'Aucun conflit détecté — vous pouvez créer le cours.';
     titre.className = 'text-sm font-semibold text-emerald-700';
     panel.className = 'bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4';
   } else {
-    titre.textContent = `⚠ ${json.nb_conflits} conflit(s) détecté(s)`;
+    titre.textContent = `${json.nb_conflits} conflit(s) détecté(s)`;
     titre.className = 'text-sm font-semibold text-amber-800';
     panel.className = 'bg-amber-50 border border-amber-200 rounded-xl px-5 py-4';
     json.conflits.forEach(c => {

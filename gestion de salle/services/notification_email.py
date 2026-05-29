@@ -137,12 +137,12 @@ def _html_reservation(reservation: Reservation, annulation: bool = False) -> str
     if annulation:
         titre    = "Réservation annulée"
         sous_titre = "La réservation suivante a été annulée."
-        badge    = _badge("❌ Annulée", "#fee2e2", "#b91c1c")
+        badge    = _badge("ANNULÉE", "#fee2e2", "#b91c1c")
         couleur_barre = "#ef4444"
     else:
         titre    = "Réservation confirmée"
         sous_titre = "Une salle a été réservée pour votre classe."
-        badge    = _badge("✅ Confirmée", "#dcfce7", "#15803d")
+        badge    = _badge("CONFIRMÉE", "#dcfce7", "#15803d")
         couleur_barre = "#22c55e"
 
     rows = (
@@ -186,9 +186,9 @@ def _html_reservation(reservation: Reservation, annulation: bool = False) -> str
 
 def _html_cours(cours: dict, annulation: bool = False) -> str:
     if annulation:
-        titre, badge, barre = "Cours annulé", _badge("❌ Annulé", "#fee2e2", "#b91c1c"), "#ef4444"
+        titre, badge, barre = "Cours annulé", _badge("ANNULÉ", "#fee2e2", "#b91c1c"), "#ef4444"
     else:
-        titre, badge, barre = "Cours planifié", _badge("📅 Cours planifié", "#e0e7ff", "#3730a3"), "#4f46e5"
+        titre, badge, barre = "Cours planifié", _badge("COURS PLANIFIÉ", "#e0e7ff", "#3730a3"), "#4f46e5"
     jours_rows = "".join(
         _info_row(j["jour_semaine"].capitalize(), f"{j['heure_debut']} → {j['heure_fin']}")
         for j in cours.get("jours", [])
@@ -221,14 +221,14 @@ def _html_cours(cours: dict, annulation: bool = False) -> str:
 
 def _html_composition(comp: dict, annulation: bool = False) -> str:
     if annulation:
-        titre, badge, barre = "Composition annulée", _badge("❌ Annulée", "#fee2e2", "#b91c1c"), "#ef4444"
+        titre, badge, barre = "Composition annulée", _badge("ANNULÉE", "#fee2e2", "#b91c1c"), "#ef4444"
     else:
-        titre, badge, barre = "Composition planifiée", _badge("📝 Composition", "#fff7ed", "#c2410c"), "#f97316"
+        titre, badge, barre = "Composition planifiée", _badge("COMPOSITION", "#fff7ed", "#c2410c"), "#f97316"
     sur_cours = comp.get("sur_cours_existant", 0)
     mention = (
         '<tr><td colspan="2" style="padding:8px 0;">'
         '<span style="background:#fef3c7;padding:6px 12px;border-radius:6px;font-size:12px;color:#92400e;">'
-        '📌 Composition sur cours existant</span></td></tr>'
+        'Composition sur cours existant</span></td></tr>'
     ) if sur_cours else ""
     rows = (
         _info_row("Matière", comp.get("matiere") or "—")
@@ -259,10 +259,10 @@ def _html_composition(comp: dict, annulation: bool = False) -> str:
 
 def _html_evenement(evt: dict, annulation: bool = False) -> str:
     if annulation:
-        titre, badge, barre = "Événement annulé", _badge("❌ Annulé", "#fee2e2", "#b91c1c"), "#ef4444"
+        titre, badge, barre = "Événement annulé", _badge("ANNULÉ", "#fee2e2", "#b91c1c"), "#ef4444"
     else:
         t = evt.get("titre", "")
-        titre, badge, barre = f"Événement : {t}", _badge("🎓 Événement", "#dcfce7", "#15803d"), "#22c55e"
+        titre, badge, barre = f"Événement : {t}", _badge("ÉVÉNEMENT", "#dcfce7", "#15803d"), "#22c55e"
     rows = (
         _info_row("Description", evt.get("description") or "—")
         + _info_row("Du", evt.get("date_debut", "—"))
@@ -296,7 +296,7 @@ def _html_test() -> str:
         <td style="padding:40px 40px 20px;text-align:center;">
           <div style="width:64px;height:64px;background:#dcfce7;border-radius:16px;
                       margin:0 auto 16px;display:flex;align-items:center;justify-content:center;">
-            <span style="font-size:32px;">✅</span>
+            <span style="font-size:22px;font-weight:700;color:#15803d;">OK</span>
           </div>
           <p style="margin:0 0 8px;color:#1e293b;font-size:22px;font-weight:700;">Configuration SMTP opérationnelle</p>
           <p style="margin:0;color:#64748b;font-size:14px;line-height:1.6;">
@@ -349,7 +349,7 @@ class NotificationEmail:
     # ── Notifications ciblées ──────────────────────────────────────────────────
 
     def envoyer_responsable(self, reservation: Reservation, annulation: bool = False):
-        sujet = "❌ Annulation de réservation" if annulation else "✅ Réservation confirmée — " + reservation.salle.nom
+        sujet = "Annulation de réservation" if annulation else "Réservation confirmée — " + reservation.salle.nom
         self.envoyer_email(
             reservation.responsable.email, sujet,
             _html_reservation(reservation, annulation),
@@ -357,7 +357,7 @@ class NotificationEmail:
 
     def envoyer_enseignant(self, reservation: Reservation,
                            enseignant: Enseignant, annulation: bool = False):
-        sujet = f"❌ Annulation — {reservation.salle.nom}" if annulation else f"📅 Cours planifié — {reservation.salle.nom}"
+        sujet = f"Annulation — {reservation.salle.nom}" if annulation else f"Cours planifié — {reservation.salle.nom}"
         self.envoyer_email(
             enseignant.email, sujet,
             _html_reservation(reservation, annulation),
@@ -365,7 +365,7 @@ class NotificationEmail:
 
     def envoyer_classe(self, reservation: Reservation,
                        etudiants: list, annulation: bool = False):
-        sujet = f"❌ Cours annulé — {reservation.classe}" if annulation else f"📅 Nouveau cours — {reservation.classe}"
+        sujet = f"Cours annulé — {reservation.classe}" if annulation else f"Nouveau cours — {reservation.classe}"
         html  = _html_reservation(reservation, annulation)
         for etudiant in etudiants:
             self.envoyer_email(etudiant.email, sujet, html)
@@ -373,21 +373,21 @@ class NotificationEmail:
     def envoyer_otp(self, destinataire: str, otp: str, nom: str = ""):
         self.envoyer_email(
             destinataire,
-            "🔐 Code de vérification — UniRéserv",
+            "[UniRéserv] Code de vérification",
             _html_otp(otp, nom),
         )
 
     def envoyer_otp_reset(self, destinataire: str, otp: str, nom: str = ""):
         self.envoyer_email(
             destinataire,
-            "🔑 Réinitialisation de mot de passe — UniRéserv",
+            "[UniRéserv] Réinitialisation de mot de passe",
             _html_reset_otp(otp, nom),
         )
 
     def envoyer_test(self, destinataire: str):
         self.envoyer_email(
             destinataire,
-            "✅ Test SMTP — UniRéserv",
+            "[UniRéserv] Test de configuration SMTP",
             _html_test(),
         )
 
@@ -403,7 +403,7 @@ class NotificationEmail:
 
     def notifier_cours(self, cours: dict, etudiants: list,
                        ens_email: str, ens_nom: str, annulation: bool = False):
-        sujet = "❌ Cours annulé" if annulation else f"📅 Cours — {cours.get('matiere', '')}"
+        sujet = "Cours annulé" if annulation else f"Cours — {cours.get('matiere', '')}"
         html  = _html_cours(cours, annulation)
         for e in etudiants:
             try:
@@ -418,7 +418,7 @@ class NotificationEmail:
 
     def notifier_composition(self, comp: dict, etudiants: list,
                              ens_email: str, ens_nom: str, annulation: bool = False):
-        sujet = "❌ Composition annulée" if annulation else f"📝 Composition — {comp.get('matiere', '')}"
+        sujet = "Composition annulée" if annulation else f"Composition — {comp.get('matiere', '')}"
         html  = _html_composition(comp, annulation)
         for e in etudiants:
             try:
@@ -432,7 +432,7 @@ class NotificationEmail:
                 pass
 
     def notifier_evenement(self, evt: dict, utilisateurs: list, annulation: bool = False):
-        sujet = "❌ Événement annulé" if annulation else f"🎓 Événement — {evt.get('titre', '')}"
+        sujet = "Événement annulé" if annulation else f"Événement — {evt.get('titre', '')}"
         html  = _html_evenement(evt, annulation)
         for u in utilisateurs:
             try:

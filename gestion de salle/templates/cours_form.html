@@ -324,7 +324,7 @@ async function verifierConflits() {
     const panel = document.getElementById('conflits-panel');
     if (json.nb_conflits === 0) {
       panel.classList.add('hidden');
-      alert('✅ Aucun conflit détecté ! Vous pouvez créer le cours.');
+      alert('Aucun conflit détecté. Vous pouvez créer le cours.');
       return;
     }
 
@@ -334,7 +334,7 @@ async function verifierConflits() {
       `<div class="flex items-center gap-2 py-1.5 border-b border-amber-100 last:border-0">
         <span class="text-xs font-semibold text-amber-800 w-20">${c.jour} ${c.date}</span>
         <span class="text-xs text-slate-600">${c.salle} · ${c.heure_debut}–${c.heure_fin}</span>
-        <span class="ml-auto text-xs text-red-600">⚡ Conflit #${c.conflit_avec_id} (${c.conflit_avec_classe})</span>
+        <span class="ml-auto text-xs text-red-600">Conflit #${c.conflit_avec_id} (${c.conflit_avec_classe})</span>
       </div>`
     ).join('');
     panel.classList.remove('hidden');

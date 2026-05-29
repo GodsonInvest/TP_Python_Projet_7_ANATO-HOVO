@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}Réservations{% endblock %}
+{% block heading %}Réservations{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl">
+
+  <!-- En-tête descriptif -->
+  <div class="mb-7">
+    <p class="text-slate-500 text-sm">
+      Gérez l'ensemble des occupations de salles : cours planifiés, compositions,
+      événements institutionnels et réservations ponctuelles.
+    </p>
+  </div>
+
+  <!-- Grille 2×2 des cartes -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+
+    <!-- ── Cours ── -->
+    {% set can_cours = role in ('admin', 'responsable') %}
+    <div class="bg-white rounded-2xl border {% if can_cours %}border-slate-200 shadow-sm{% else %}border-slate-100 opacity-60{% endif %} overflow-hidden">
+      <div class="flex items-start gap-4 px-6 pt-6 pb-4">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0
+                    {% if can_cours %}bg-indigo-100{% else %}bg-slate-100{% endif %}">
+          <svg class="w-6 h-6 {% if can_cours %}text-indigo-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <h2 class="font-bold text-slate-800 text-base">Cours</h2>
+            {% if can_cours %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
+              {{ nb_cours }} actif{{ 's' if nb_cours != 1 else '' }}
+            </span>
+            {% else %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-400">Accès restreint</span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-slate-500 leading-snug">
+            Planning hebdomadaire récurrent lié à une filière. Génère automatiquement toutes les occurrences jusqu'à la date de fin.
+          </p>
+        </div>
+      </div>
+      {% if can_cours %}
+      <div class="px-6 pb-5 flex items-center gap-2">
+        <a href="{{ url_for('cours_v2_liste') }}" class="btn-secondary text-xs px-3 py-2 flex-1 justify-center">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          Voir tout
+        </a>
+        <a href="{{ url_for('cours_v2_nouveau') }}" class="btn-primary text-xs px-3 py-2 flex-1 justify-center">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          Nouveau cours
+        </a>
+      </div>
+      {% else %}
+      <div class="px-6 pb-5">
+        <p class="text-xs text-slate-400 italic">Réservé aux responsables et administrateurs.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Composition ── -->
+    {% set can_comp = role in ('admin', 'responsable', 'enseignant') %}
+    <div class="bg-white rounded-2xl border {% if can_comp %}border-slate-200 shadow-sm{% else %}border-slate-100 opacity-60{% endif %} overflow-hidden">
+      <div class="flex items-start gap-4 px-6 pt-6 pb-4">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0
+                    {% if can_comp %}bg-orange-100{% else %}bg-slate-100{% endif %}">
+          <svg class="w-6 h-6 {% if can_comp %}text-orange-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <h2 class="font-bold text-slate-800 text-base">Composition</h2>
+            {% if can_comp %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
+              {{ nb_compositions }} à venir
+            </span>
+            {% else %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-400">Accès restreint</span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-slate-500 leading-snug">
+            Examen ponctuel sur une date et une salle précises. Peut se tenir dans la salle d'un cours existant sans conflit.
+          </p>
+        </div>
+      </div>
+      {% if can_comp %}
+      <div class="px-6 pb-5 flex items-center gap-2">
+        <a href="{{ url_for('compositions_liste') }}" class="btn-secondary text-xs px-3 py-2 flex-1 justify-center">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          Voir tout
+        </a>
+        <a href="{{ url_for('compositions_nouvelle') }}" class="btn-primary text-xs px-3 py-2 flex-1 justify-center" style="background:#ea580c">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          Nouvelle compo
+        </a>
+      </div>
+      {% else %}
+      <div class="px-6 pb-5">
+        <p class="text-xs text-slate-400 italic">Réservé aux enseignants, responsables et administrateurs.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Événement ── -->
+    {% set can_evt = role in ('admin', 'responsable') %}
+    <div class="bg-white rounded-2xl border {% if can_evt %}border-slate-200 shadow-sm{% else %}border-slate-100 opacity-60{% endif %} overflow-hidden">
+      <div class="flex items-start gap-4 px-6 pt-6 pb-4">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0
+                    {% if can_evt %}bg-emerald-100{% else %}bg-slate-100{% endif %}">
+          <svg class="w-6 h-6 {% if can_evt %}text-emerald-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <h2 class="font-bold text-slate-800 text-base">Événement</h2>
+            {% if can_evt %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700">
+              {{ nb_evenements }} validé{{ 's' if nb_evenements != 1 else '' }}
+            </span>
+            {% else %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-400">Accès restreint</span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-slate-500 leading-snug">
+            Événement institutionnel ciblant une école, une filière ou toute l'université. Soumis à validation de l'admin.
+          </p>
+        </div>
+      </div>
+      {% if can_evt %}
+      <div class="px-6 pb-5 flex items-center gap-2">
+        <a href="{{ url_for('evenements_liste') }}" class="btn-secondary text-xs px-3 py-2 flex-1 justify-center">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          Voir tout
+        </a>
+        <a href="{{ url_for('evenements_nouveau') }}" class="btn-primary text-xs px-3 py-2 flex-1 justify-center" style="background:#059669">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          Nouvel événement
+        </a>
+      </div>
+      {% else %}
+      <div class="px-6 pb-5">
+        <p class="text-xs text-slate-400 italic">Réservé aux responsables et administrateurs.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- ── Réservation ponctuelle ── -->
+    {% set can_res = role in ('admin', 'responsable') %}
+    <div class="bg-white rounded-2xl border {% if can_res %}border-slate-200 shadow-sm{% else %}border-slate-100 opacity-60{% endif %} overflow-hidden">
+      <div class="flex items-start gap-4 px-6 pt-6 pb-4">
+        <div class="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0
+                    {% if can_res %}bg-violet-100{% else %}bg-slate-100{% endif %}">
+          <svg class="w-6 h-6 {% if can_res %}text-violet-600{% else %}text-slate-400{% endif %}" fill="none" stroke="currentColor" stroke-width="1.75" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-0.5">
+            <h2 class="font-bold text-slate-800 text-base">Réservation ponctuelle</h2>
+            {% if can_res %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-violet-100 text-violet-700">
+              {{ nb_reservations }} confirmée{{ 's' if nb_reservations != 1 else '' }}
+            </span>
+            {% else %}
+            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-400">Accès restreint</span>
+            {% endif %}
+          </div>
+          <p class="text-sm text-slate-500 leading-snug">
+            Réservation unique d'une salle pour une classe, une date et un créneau horaire. Détection automatique des conflits.
+          </p>
+        </div>
+      </div>
+      {% if can_res %}
+      <div class="px-6 pb-5 flex items-center gap-2">
+        <a href="{{ url_for('reservations') }}" class="btn-secondary text-xs px-3 py-2 flex-1 justify-center">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/></svg>
+          Voir tout
+        </a>
+        <a href="{{ url_for('reservation_ajouter') }}" class="btn-primary text-xs px-3 py-2 flex-1 justify-center" style="background:#7c3aed">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+          Nouvelle réserv.
+        </a>
+      </div>
+      {% else %}
+      <div class="px-6 pb-5">
+        <p class="text-xs text-slate-400 italic">Réservé aux responsables et administrateurs.</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </div><!-- /grille -->
+
+  <!-- Lien vers le planning global -->
+  <div class="mt-6 flex justify-center">
+    <a href="{{ url_for('planning') }}"
+       class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 bg-white text-slate-600 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 transition shadow-sm">
+      <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"/>
+      </svg>
+      Voir le planning global
+    </a>
+  </div>
+
+</div>
+{% endblock %}

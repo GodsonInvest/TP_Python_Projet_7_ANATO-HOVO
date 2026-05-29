@@ -2,7 +2,7 @@ from datetime import date, timedelta, datetime
 from typing import Optional
 
 JOURS_SEMAINE = {
-    "lundi": 0, "mardi": 1, "mercredi": 2, "jeudi": 3, "vendredi": 4,
+    "lundi": 0, "mardi": 1, "mercredi": 2, "jeudi": 3, "vendredi": 4, "samedi": 5,
 }
 
 

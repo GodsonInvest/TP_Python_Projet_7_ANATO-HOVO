@@ -647,6 +647,7 @@ def dashboard():
         evts_en_attente=evts_en_attente,
         evts_refuses=evts_refuses,
         unites_dict=unites_dict,
+        utilisateurs=utilisateurs,
     )
 
 
@@ -761,6 +762,32 @@ def salles_supprimer(salle_id):
 
 
 # ── Réservations ──────────────────────────────────────────────────────────────────
+
+@app.route("/reservations/hub")
+@login_required
+def reservations_hub():
+    bd, _, _, toutes = get_data()
+    role = session.get("user_role")
+    aujourd_hui = date.today().isoformat()
+
+    nb_reservations = len([r for r in toutes if r.statut == StatutReservation.CONFIRMEE])
+    tous_cours      = bd.charger_tous_cours_v2()
+    nb_cours        = len([c for c in tous_cours if c["date_fin"] >= aujourd_hui])
+    toutes_comps    = bd.charger_toutes_compositions()
+    nb_compositions = len([c for c in toutes_comps if c["date"] >= aujourd_hui])
+    tous_evts       = bd.charger_tous_evenements()
+    nb_evenements   = len([e for e in tous_evts if e["statut"] == "valide"
+                           and e["date_fin"] >= aujourd_hui])
+
+    return render_template(
+        "reservations_hub.html", active="reservations",
+        role=role,
+        nb_reservations=nb_reservations,
+        nb_cours=nb_cours,
+        nb_compositions=nb_compositions,
+        nb_evenements=nb_evenements,
+    )
+
 
 @app.route("/reservations")
 @login_required
@@ -1724,154 +1751,25 @@ def _parser_cours_form(form, salles_dict):
 @app.route("/cours")
 @login_required
 def cours_liste():
-    if not peut_gerer_reservations():
-        flash("Accès réservé aux responsables et administrateurs.", "error")
-        return redirect(url_for("dashboard"))
-    bd, utilisateurs, salles_dict, _ = get_data()
-    tous_cours = bd.charger_tous_cours()
-    return render_template(
-        "cours.html", active="cours",
-        cours_liste=tous_cours,
-        utilisateurs=utilisateurs,
-        salles_dict=salles_dict,
-        today=date.today().isoformat(),
-    )
+    return redirect(url_for("cours_v2_liste"), 301)
 
 
 @app.route("/cours/nouveau", methods=["GET", "POST"])
 @login_required
 def cours_nouveau():
-    if not peut_gerer_reservations():
-        flash("Accès réservé aux responsables et administrateurs.", "error")
-        return redirect(url_for("dashboard"))
-
-    bd, utilisateurs, salles_dict, reservations_existantes = get_data()
-    ecoles  = bd.charger_toutes_ecoles()
-    unites  = bd.charger_toutes_unites()
-    groupes = {}
-    for u in unites:
-        groupes.setdefault(u.ecole_id, []).append(u)
-    ecoles_filieres = [
-        {"ecole": e, "unites": sorted(groupes.get(e.id, []), key=lambda x: (x.nom, x.niveau))}
-        for e in ecoles if groupes.get(e.id)
-    ]
-    unites_json = json.dumps([u.to_dict() for u in unites])
-    enseignants = [u for u in utilisateurs.values() if isinstance(u, Enseignant)]
-    enseignants_json = json.dumps([
-        {"id": e.id, "nom": e.nom, "matieres": e.matieres}
-        for e in sorted(enseignants, key=lambda x: x.nom)
-    ])
-
-    if request.method == "POST":
-        cours_data, erreur = _parser_cours_form(request.form, salles_dict)
-        if erreur:
-            flash(erreur, "error")
-        else:
-            ignorer    = request.form.get("ignorer_conflits") == "1"
-            responsable = utilisateurs.get(session["user_id"])
-            gr = GestionReservation()
-            gr._GestionReservation__reservations = list(reservations_existantes)
-            conflits, reservations_creees = gr.creer_cours(
-                cours_data, salles_dict, responsable, ignorer_conflits=ignorer
-            )
-            if conflits:
-                flash(
-                    f"{len(conflits)} conflit(s) détecté(s). "
-                    "Vérifiez les dates ou cochez « Ignorer les conflits ».",
-                    "error",
-                )
-            else:
-                cours_db = {
-                    "id":            None,
-                    "enseignant_id": cours_data["enseignant_id"],
-                    "classe":        cours_data["classe"],
-                    "matiere":       cours_data["matiere"],
-                    "date_debut":    cours_data["date_debut"].isoformat(),
-                    "date_fin":      cours_data["date_fin"].isoformat(),
-                    "created_by":    session["user_id"],
-                    "created_at":    datetime.now().isoformat(),
-                    "jours": [
-                        {
-                            "jour_semaine": j["jour"],
-                            "salle_id":    j["salle_id"],
-                            "heure_debut": j["heure_debut"].strftime("%H:%M"),
-                            "heure_fin":   j["heure_fin"].strftime("%H:%M"),
-                        }
-                        for j in cours_data["jours"]
-                    ],
-                }
-                cours_id = bd.sauvegarder_cours(cours_db)
-                for r in reservations_creees:
-                    r.cours_id = cours_id
-                    bd.sauvegarder_reservation(r)
-                flash(
-                    f"Cours créé — {len(reservations_creees)} séance(s) planifiée(s).",
-                    "success",
-                )
-                return redirect(url_for("cours_liste"))
-
-    u_courant    = utilisateurs.get(session["user_id"])
-    pre_classe   = getattr(u_courant, "classe", "") or ""
-    pre_ecole_id = getattr(u_courant, "ecole_id", None)
-    return render_template(
-        "cours_form.html", active="cours",
-        salles=list(salles_dict.values()),
-        ecoles_filieres=ecoles_filieres,
-        unites_json=unites_json,
-        enseignants_json=enseignants_json,
-        pre_classe=pre_classe,
-        pre_ecole_id=pre_ecole_id,
-        user_role=session.get("user_role"),
-        today=date.today().isoformat(),
-    )
+    return redirect(url_for("cours_v2_nouveau"), 301)
 
 
 @app.route("/cours/verifier-conflits", methods=["POST"])
 @login_required
 def cours_verifier_conflits():
-    bd, utilisateurs, salles_dict, reservations_existantes = get_data()
-    cours_data, erreur = _parser_cours_form(request.form, salles_dict)
-    if erreur:
-        return Response(json.dumps({"erreur": erreur}), content_type="application/json"), 400
-    responsable = utilisateurs.get(session["user_id"])
-    gr = GestionReservation()
-    gr._GestionReservation__reservations = list(reservations_existantes)
-    conflits, _ = gr.creer_cours(cours_data, salles_dict, responsable, ignorer_conflits=False)
-    return Response(json.dumps({
-        "nb_conflits": len(conflits),
-        "conflits": [
-            {
-                "date":                c["date"].strftime("%d/%m/%Y"),
-                "jour":                c["jour"].capitalize(),
-                "salle":               c["salle"].nom,
-                "heure_debut":         c["heure_debut"].strftime("%H:%M"),
-                "heure_fin":           c["heure_fin"].strftime("%H:%M"),
-                "conflit_avec_id":     c["conflit_avec_id"],
-                "conflit_avec_classe": c["conflit_avec_classe"],
-            }
-            for c in conflits
-        ],
-    }), content_type="application/json")
+    return redirect(url_for("cours_v2_verifier_conflits"), 301)
 
 
 @app.route("/cours/<int:cours_id>/annuler", methods=["POST"])
 @login_required
 def cours_annuler(cours_id):
-    if not peut_gerer_reservations():
-        flash("Accès réservé.", "error")
-        return redirect(url_for("dashboard"))
-    bd, utilisateurs, salles_dict, reservations_existantes = get_data()
-    cours = bd.charger_cours_par_id(cours_id)
-    if not cours:
-        flash("Cours introuvable.", "error")
-        return redirect(url_for("cours_liste"))
-    gr = GestionReservation()
-    gr._GestionReservation__reservations = list(reservations_existantes)
-    annulees = gr.annuler_cours(cours_id)
-    for r in annulees:
-        bd.sauvegarder_reservation(r)
-    flash(f"{len(annulees)} séance(s) future(s) annulée(s).", "success")
-    return redirect(url_for("cours_liste"))
+    return redirect(url_for("cours_v2_annuler", cours_id=cours_id), 301)
 
 
 # ── API AJAX ──────────────────────────────────────────────────────────────────────
