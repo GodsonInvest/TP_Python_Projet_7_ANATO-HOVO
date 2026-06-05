@@ -1,0 +1,12 @@
+{
+  "name": "unireserv",
+  "version": "1.0.0",
+  "description": "UniRéserv — Système de gestion de salles universitaires",
+  "scripts": {
+    "build": "node node_modules/tailwindcss/lib/cli.js -i ./static/css/input.css -o ./static/css/tailwind.css --minify",
+    "watch": "node node_modules/tailwindcss/lib/cli.js -i ./static/css/input.css -o ./static/css/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.19"
+  }
+}

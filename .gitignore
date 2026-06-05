@@ -22,3 +22,7 @@ Thumbs.db
 # IDE
 .vscode/
 *.idea/
+
+# Node.js (Tailwind CSS build)
+node_modules/
+*.lock
