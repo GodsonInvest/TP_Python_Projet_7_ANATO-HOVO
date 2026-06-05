@@ -155,19 +155,19 @@
         <tr class="data-row border-b border-slate-50 last:border-0">
           <td class="px-6 py-3.5 font-medium text-slate-800">{{ r.salle.nom }}</td>
           <td class="px-6 py-3.5 text-slate-600">
-            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium">{{ format_classe(r.classe) }}</span>
+            <span class="badge-classe">{{ format_classe(r.classe) }}</span>
           </td>
           <td class="px-6 py-3.5 text-slate-600 text-xs">{{ r.date.strftime('%d/%m/%Y') }}</td>
           <td class="px-6 py-3.5 text-slate-600 font-mono text-xs">{{ r.heure_debut.strftime('%H:%M') }} – {{ r.heure_fin.strftime('%H:%M') }}</td>
           <td class="px-6 py-3.5">
             {% if r.statut == StatutReservation.CONFIRMEE %}
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Confirmée</span>
+              <span class="badge-vert"><span class="dot-vert"></span>Confirmée</span>
             {% elif r.statut.value == 'en_attente' %}
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>En attente</span>
+              <span class="badge-amber"><span class="dot-amber"></span>En attente</span>
             {% elif r.statut.value == 'annulee' %}
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-red-50 text-red-700"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Annulée</span>
+              <span class="badge-rouge"><span class="dot-rouge"></span>Annulée</span>
             {% else %}
-              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Terminée</span>
+              <span class="badge-gris"><span class="dot-gris"></span>Terminée</span>
             {% endif %}
           </td>
         </tr>
@@ -244,7 +244,7 @@
             </div>
           </td>
           <td class="px-6 py-3.5">
-            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium">{{ format_classe(r.classe) }}</span>
+            <span class="badge-classe">{{ format_classe(r.classe) }}</span>
           </td>
           <td class="px-6 py-3.5 text-slate-500 text-xs">{{ r.matiere or '—' }}</td>
         </tr>

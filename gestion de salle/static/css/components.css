@@ -1,0 +1,167 @@
+/* ==========================================================================
+   Composants réutilisables UniRéserv
+   Utilisez @apply pour composer des classes Tailwind en composants nommés.
+   ========================================================================== */
+
+@layer components {
+
+  /* ── Cartes ──────────────────────────────────────────────────────────────── */
+  .card {
+    @apply bg-white rounded-xl border border-slate-200 shadow-sm;
+  }
+  .card-header {
+    @apply px-6 py-4 border-b border-slate-100 flex items-center justify-between;
+  }
+  .card-body {
+    @apply px-6 py-5;
+  }
+
+  /* ── Badges de statut ────────────────────────────────────────────────────── */
+  .badge {
+    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold;
+  }
+  .badge-vert {
+    @apply badge bg-emerald-50 text-emerald-700;
+  }
+  .badge-amber {
+    @apply badge bg-amber-50 text-amber-700;
+  }
+  .badge-rouge {
+    @apply badge bg-red-50 text-red-700;
+  }
+  .badge-gris {
+    @apply badge bg-slate-100 text-slate-500;
+  }
+  .badge-bleu {
+    @apply badge bg-indigo-50 text-indigo-700;
+  }
+  .badge-orange {
+    @apply badge bg-orange-50 text-orange-700;
+  }
+  .badge-violet {
+    @apply badge bg-violet-50 text-violet-700;
+  }
+
+  /* Points indicateurs dans les badges */
+  .dot-vert   { @apply w-1.5 h-1.5 rounded-full bg-emerald-500; }
+  .dot-amber  { @apply w-1.5 h-1.5 rounded-full bg-amber-400; }
+  .dot-rouge  { @apply w-1.5 h-1.5 rounded-full bg-red-500; }
+  .dot-gris   { @apply w-1.5 h-1.5 rounded-full bg-slate-400; }
+  .dot-bleu   { @apply w-1.5 h-1.5 rounded-full bg-indigo-500; }
+
+  /* ── Badges rôle ─────────────────────────────────────────────────────────── */
+  .badge-role {
+    @apply px-2.5 py-1 rounded-full text-xs font-semibold;
+  }
+  .badge-admin       { @apply badge-role bg-red-100 text-red-700; }
+  .badge-responsable { @apply badge-role bg-amber-100 text-amber-700; }
+  .badge-enseignant  { @apply badge-role bg-blue-100 text-blue-700; }
+  .badge-etudiant    { @apply badge-role bg-indigo-100 text-indigo-700; }
+
+  /* Badge classe/filière */
+  .badge-classe {
+    @apply px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium;
+  }
+
+  /* ── Tableaux ────────────────────────────────────────────────────────────── */
+  .th {
+    @apply px-6 py-3 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide;
+  }
+  .td {
+    @apply px-6 py-3.5 text-sm text-slate-600;
+  }
+  .td-bold {
+    @apply px-6 py-3.5 text-sm font-medium text-slate-800;
+  }
+  .tr {
+    @apply border-b border-slate-50 last:border-0;
+  }
+  .tr:hover td {
+    @apply bg-slate-50;
+  }
+
+  /* ── Boutons d'action inline (dans les tableaux) ─────────────────────────── */
+  .btn-action {
+    @apply inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition;
+  }
+  .btn-modifier {
+    @apply btn-action border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700;
+  }
+  .btn-supprimer {
+    @apply btn-action border border-red-200 bg-red-50 hover:bg-red-100 text-red-600;
+  }
+  .btn-annuler-action {
+    @apply btn-action border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-600;
+  }
+  .btn-voir {
+    @apply btn-action border border-slate-200 bg-white hover:bg-slate-50 text-slate-600;
+  }
+  .btn-valider {
+    @apply btn-action border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 text-emerald-700;
+  }
+  .btn-refuser {
+    @apply btn-action border border-red-200 bg-red-50 hover:bg-red-100 text-red-600;
+  }
+
+  /* ── Liens ───────────────────────────────────────────────────────────────── */
+  .lien-voir-tout {
+    @apply inline-flex items-center gap-1.5 text-indigo-600 hover:text-indigo-800 text-sm font-medium transition;
+  }
+
+  /* ── Icône en boîte ──────────────────────────────────────────────────────── */
+  .icon-box {
+    @apply w-9 h-9 rounded-xl flex items-center justify-center shrink-0;
+  }
+  .icon-box-indigo  { @apply icon-box bg-indigo-100; }
+  .icon-box-emerald { @apply icon-box bg-emerald-100; }
+  .icon-box-amber   { @apply icon-box bg-amber-100; }
+  .icon-box-orange  { @apply icon-box bg-orange-100; }
+  .icon-box-violet  { @apply icon-box bg-violet-100; }
+  .icon-box-red     { @apply icon-box bg-red-100; }
+
+  /* ── État vide ───────────────────────────────────────────────────────────── */
+  .empty-state {
+    @apply py-16 text-center;
+  }
+  .empty-state svg {
+    @apply w-12 h-12 text-slate-200 mx-auto mb-3;
+  }
+  .empty-state p {
+    @apply text-slate-400 font-medium text-sm;
+  }
+  .empty-state span {
+    @apply text-slate-300 text-xs mt-1 block;
+  }
+
+  /* ── Filtres / Onglets ───────────────────────────────────────────────────── */
+  .tab-actif {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold transition;
+  }
+  .tab-inactif {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50 text-xs font-medium transition;
+  }
+
+  /* ── Séparateur vertical ─────────────────────────────────────────────────── */
+  .vdivider {
+    @apply w-px h-5 bg-slate-200;
+  }
+
+  /* ── Champ de recherche ──────────────────────────────────────────────────── */
+  .search-input {
+    @apply w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all;
+  }
+  .search-wrapper {
+    @apply relative flex-1;
+  }
+  .search-icon {
+    @apply absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none;
+  }
+
+  /* ── Ligne liste avec actions ────────────────────────────────────────────── */
+  .list-row {
+    @apply px-6 py-3.5 flex items-center justify-between gap-3;
+  }
+  .list-row-divided {
+    @apply list-row border-b border-slate-50 last:border-0;
+  }
+}

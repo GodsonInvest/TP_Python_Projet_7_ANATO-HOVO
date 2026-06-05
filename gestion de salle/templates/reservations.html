@@ -97,7 +97,7 @@
 {% endif %}
 
 <!-- Résultats -->
-<div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+<div class="card overflow-hidden">
   {% if reservations %}
   <div class="px-6 py-3 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
     <p class="text-xs text-slate-500 font-medium">
@@ -128,43 +128,38 @@
                class="font-semibold text-slate-800 hover:text-indigo-600 transition">{{ r.salle.nom }}</a>
           </td>
           <td class="px-5 py-3.5">
-            <span class="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-medium">{{ format_classe(r.classe) }}</span>
+            <span class="badge-classe">{{ format_classe(r.classe) }}</span>
           </td>
           <td class="px-5 py-3.5 text-slate-500 text-xs">{{ r.matiere or '—' }}</td>
           <td class="px-5 py-3.5 text-slate-600 text-xs font-medium">{{ r.date.strftime('%d/%m/%Y') }}</td>
           <td class="px-5 py-3.5 text-slate-600 font-mono text-xs">{{ r.heure_debut.strftime('%H:%M') }} – {{ r.heure_fin.strftime('%H:%M') }}</td>
           <td class="px-5 py-3.5">
             {% if r.statut == StatutReservation.CONFIRMEE %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>Confirmée</span>
+              <span class="badge-vert"><span class="dot-vert"></span>Confirmée</span>
             {% elif r.statut.value == 'en_attente' %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700"><span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>En attente</span>
+              <span class="badge-amber"><span class="dot-amber"></span>En attente</span>
             {% elif r.statut.value == 'annulee' %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-red-50 text-red-700"><span class="w-1.5 h-1.5 rounded-full bg-red-500"></span>Annulée</span>
+              <span class="badge-rouge"><span class="dot-rouge"></span>Annulée</span>
             {% else %}
-              <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-500"><span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span>Terminée</span>
+              <span class="badge-gris"><span class="dot-gris"></span>Terminée</span>
             {% endif %}
           </td>
           <td class="px-5 py-3.5 text-right">
             <div class="flex items-center justify-end gap-1.5 flex-wrap">
               {% if peut_gerer and r.statut.value not in ('annulee', 'terminee') %}
-              <a href="{{ url_for('reservation_modifier', res_id=r.id) }}"
-                 class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-medium transition">
+              <a href="{{ url_for('reservation_modifier', res_id=r.id) }}" class="btn-modifier">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
                 Modifier
               </a>
               <form method="POST" action="{{ url_for('reservation_annuler', res_id=r.id) }}" class="inline"
                     onsubmit="return confirm('Annuler cette réservation ?')">
-                <button type="submit"
-                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-600 text-xs font-medium transition">
-                  Annuler
-                </button>
+                <button type="submit" class="btn-annuler-action">Annuler</button>
               </form>
               {% endif %}
               {% if session.user_role == 'admin' %}
               <form method="POST" action="{{ url_for('reservation_supprimer', res_id=r.id) }}" class="inline"
                     onsubmit="return confirm('Supprimer définitivement cette réservation ?')">
-                <button type="submit"
-                  class="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-medium transition">
+                <button type="submit" class="btn-supprimer">
                   <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                   Suppr.
                 </button>
@@ -188,9 +183,9 @@
   </div>
 
   {% else %}
-  <div class="text-center py-16">
-    <svg class="w-12 h-12 text-slate-200 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-    <p class="text-slate-400 font-medium text-sm">Aucune réservation trouvée</p>
+  <div class="empty-state">
+    <svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+    <p>Aucune réservation trouvée</p>
     {% if classe_etudiant %}
     <p class="text-slate-300 text-xs mt-1">Aucune réservation pour la classe <strong>{{ classe_etudiant }}</strong>.</p>
     {% else %}

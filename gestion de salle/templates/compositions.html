@@ -33,7 +33,7 @@
   {% set filiere = unites.get(comp.filiere_id) %}
   {% set passee = comp.date < today %}
 
-  <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+  <div class="card overflow-hidden">
     <div class="px-6 py-4 flex flex-wrap items-start justify-between gap-3">
       <div class="flex items-start gap-3 min-w-0">
         <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 {{ 'bg-orange-100' if not passee else 'bg-slate-100' }}">
@@ -44,12 +44,8 @@
         <div class="min-w-0">
           <div class="flex flex-wrap items-center gap-2 mb-0.5">
             <span class="text-base font-semibold text-slate-800">{{ comp.matiere or 'Composition' }}</span>
-            {% if comp.sur_cours_existant %}
-            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">Sur cours existant</span>
-            {% endif %}
-            {% if passee %}
-            <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-500">Passée</span>
-            {% endif %}
+            {% if comp.sur_cours_existant %}<span class="badge-amber">Sur cours existant</span>{% endif %}
+            {% if passee %}<span class="badge-gris">Passée</span>{% endif %}
           </div>
           <p class="text-sm text-slate-500">
             {% if enseignant %}<span class="font-medium text-slate-700">{{ enseignant.nom }}</span>{% elif comp.enseignant_nom_ext %}<span class="font-medium text-amber-700">{{ comp.enseignant_nom_ext }}</span>{% endif %}
@@ -68,8 +64,7 @@
     <div class="border-t border-slate-100 px-6 py-3 flex justify-end bg-slate-50/50">
       <form method="POST" action="{{ url_for('compositions_annuler', comp_id=comp.id) }}"
         onsubmit="return confirm('Annuler cette composition ?')">
-        <button type="submit"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition">
+        <button type="submit" class="btn-supprimer">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
           Annuler
         </button>
