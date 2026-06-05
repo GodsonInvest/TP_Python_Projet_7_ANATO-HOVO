@@ -9,28 +9,37 @@
       <p class="text-sm text-slate-500">Remplissez les informations de la salle.</p>
     </div>
     <div class="px-6 py-6">
-      <form method="POST" class="space-y-5">
+      {% set errors = errors if errors is defined else {} %}
+
+      {% if errors.global %}
+      <div class="mb-4 flex items-start gap-2 rounded-xl px-4 py-3 text-sm border bg-red-50 border-red-200 text-red-700">
+        <svg class="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+        {{ errors.global }}
+      </div>
+      {% endif %}
+
+      <form method="POST" class="space-y-5" novalidate>
 
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">
             Nom de la salle <span class="text-red-500">*</span>
           </label>
-          <input type="text" name="nom" required
-            value="{{ salle.nom if salle else '' }}"
+          <input type="text" name="nom"
+            value="{{ request.form.get('nom', salle.nom if salle else '') }}"
             placeholder="ex : Amphi A"
-            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            class="w-full rounded-xl border {{ 'border-red-400 bg-red-50' if errors.nom else 'border-slate-300 bg-slate-50' }} px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          {% if errors.nom %}<p class="mt-1 text-xs text-red-600">{{ errors.nom }}</p>{% endif %}
         </div>
 
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">
             Capacité (places) <span class="text-red-500">*</span>
           </label>
-          <div class="relative">
-            <input type="number" name="capacite" required min="1"
-              value="{{ salle.capacite if salle else '' }}"
-              placeholder="ex : 50"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
-          </div>
+          <input type="number" name="capacite" min="1" max="2000"
+            value="{{ request.form.get('capacite', salle.capacite if salle else '') }}"
+            placeholder="ex : 50"
+            class="w-full rounded-xl border {{ 'border-red-400 bg-red-50' if errors.capacite else 'border-slate-300 bg-slate-50' }} px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+          {% if errors.capacite %}<p class="mt-1 text-xs text-red-600">{{ errors.capacite }}</p>{% endif %}
         </div>
 
         <div>

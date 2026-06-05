@@ -3,7 +3,17 @@
 {% block heading %}{{ 'Modifier' if evt else 'Nouvel événement' }}{% endblock %}
 
 {% block content %}
+{% set errors = errors if errors is defined else {} %}
 <div class="max-w-xl space-y-5">
+
+  {% if errors %}
+  <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+    <p class="text-sm font-semibold text-red-700 mb-1">Veuillez corriger les erreurs :</p>
+    <ul class="list-disc list-inside space-y-0.5">
+      {% for champ, msg in errors.items() %}<li class="text-xs text-red-600">{{ msg }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
   {% if role == 'responsable' %}
   <div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 flex items-center gap-3">

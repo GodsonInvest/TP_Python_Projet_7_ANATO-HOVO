@@ -20,6 +20,7 @@ from services.gestion_cours import GestionCours
 from services.gestion_composition import GestionComposition
 from services.gestion_evenement import GestionEvenement
 from services.notification_email import NotificationEmail
+from services.validation import Validateur
 from persistance.db_sqlite import BaseDonneesSQLite
 
 app = Flask(__name__)
@@ -229,6 +230,16 @@ def login():
     if request.method == "POST":
         login_val = request.form.get("login", "").strip()
         mdp       = request.form.get("mot_de_passe", "")
+
+        errors = {}
+        ok, msg = Validateur.valider_champ_requis(login_val, "Login")
+        if not ok: errors["login"] = msg
+        ok, msg = Validateur.valider_champ_requis(mdp, "Mot de passe")
+        if not ok: errors["mot_de_passe"] = msg
+
+        if errors:
+            return render_template("login.html", errors=errors)
+
         u = get_bd().charger_utilisateur_par_login(login_val)
         if u and Authentification.verifier_hash(mdp, u.mot_de_passe):
             session.update({
@@ -239,8 +250,9 @@ def login():
             })
             flash(f"Bienvenue, {u.nom} !", "success")
             return redirect(url_for("dashboard"))
-        flash("Identifiant ou mot de passe incorrect.", "error")
-    return render_template("login.html")
+        errors["global"] = "Identifiant ou mot de passe incorrect."
+        return render_template("login.html", errors=errors)
+    return render_template("login.html", errors={})
 
 
 @app.route("/inscription", methods=["GET", "POST"])
@@ -266,17 +278,23 @@ def inscription():
         ecole_id_str       = request.form.get("ecole_id", "").strip()
         unite_id_str       = request.form.get("unite_formation_id", "").strip()
 
-        if not all([nom, email, login_val, mdp]):
-            flash("Tous les champs obligatoires doivent être remplis.", "error")
-            return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
-
-        if len(mdp) < 6:
-            flash("Le mot de passe doit comporter au moins 6 caractères.", "error")
-            return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
+        errors = {}
+        for champ, val, fn in [
+            ("nom",   nom,       Validateur.valider_nom),
+            ("email", email,     Validateur.valider_email),
+            ("login", login_val, Validateur.valider_login),
+            ("mot_de_passe", mdp, Validateur.valider_mot_de_passe),
+        ]:
+            ok, msg = fn(val)
+            if not ok:
+                errors[champ] = msg
 
         if role not in ("etudiant", "enseignant"):
-            flash("Rôle invalide.", "error")
-            return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
+            errors["role"] = "Rôle invalide."
+
+        if errors:
+            return render_template("inscription.html", ecoles=ecoles,
+                                   unites_json=unites_json, errors=errors)
 
         # La classe = le niveau choisi (L1, L2, L3, M1, M2)
         if role == "etudiant" and not classe and unite_id_str.isdigit():
@@ -285,8 +303,9 @@ def inscription():
                 classe = u_obj.niveau
 
         if bd.charger_utilisateur_par_login(login_val):
-            flash(f"Le login « {login_val} » est déjà utilisé.", "error")
-            return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
+            errors["login"] = f"Le login « {login_val} » est déjà utilisé."
+            return render_template("inscription.html", ecoles=ecoles,
+                                   unites_json=unites_json, errors=errors)
 
         otp    = _generer_otp()
         expire = (datetime.now() + timedelta(minutes=5)).isoformat()
@@ -316,7 +335,7 @@ def inscription():
             )
         return redirect(url_for("inscription_verifier"))
 
-    return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json)
+    return render_template("inscription.html", ecoles=ecoles, unites_json=unites_json, errors={})
 
 
 @app.route("/inscription/verifier", methods=["GET", "POST"])
@@ -707,9 +726,15 @@ def salles_ajouter():
         eq_raw   = request.form.get("equipements", "").strip()
         equipements = [e.strip() for e in eq_raw.split(",") if e.strip()]
 
-        if not nom or not capacite.isdigit() or int(capacite) <= 0:
-            flash("Nom et capacité (entier > 0) sont obligatoires.", "error")
-            return render_template("salle_form.html", action="Ajouter", active="salles")
+        errors = {}
+        ok, msg = Validateur.valider_champ_requis(nom, "Nom de la salle")
+        if not ok: errors["nom"] = msg
+        ok, msg = Validateur.valider_capacite(capacite)
+        if not ok: errors["capacite"] = msg
+
+        if errors:
+            return render_template("salle_form.html", action="Ajouter",
+                                   active="salles", errors=errors)
 
         bd = get_bd()
         s = Salle(nom, int(capacite), equipements)
@@ -717,7 +742,7 @@ def salles_ajouter():
         flash(f"Salle « {nom} » ajoutée.", "success")
         return redirect(url_for("salles"))
 
-    return render_template("salle_form.html", action="Ajouter", active="salles")
+    return render_template("salle_form.html", action="Ajouter", active="salles", errors={})
 
 
 @app.route("/salles/<int:salle_id>/modifier", methods=["GET", "POST"])
@@ -736,17 +761,25 @@ def salles_modifier(salle_id):
         eq_raw   = request.form.get("equipements", "").strip()
         equipements = [e.strip() for e in eq_raw.split(",") if e.strip()]
 
-        if nom:
-            salle.nom = nom
-        if capacite.isdigit() and int(capacite) > 0:
-            salle.capacite = int(capacite)
+        errors = {}
+        ok, msg = Validateur.valider_champ_requis(nom, "Nom de la salle")
+        if not ok: errors["nom"] = msg
+        ok, msg = Validateur.valider_capacite(capacite)
+        if not ok: errors["capacite"] = msg
+
+        if errors:
+            return render_template("salle_form.html", action="Modifier",
+                                   salle=salle, active="salles", errors=errors)
+
+        salle.nom = nom
+        salle.capacite = int(capacite)
         salle._Salle__equipements = equipements
         bd.sauvegarder_salle(salle)
         flash(f"Salle « {salle.nom} » modifiée.", "success")
         return redirect(url_for("salles"))
 
     return render_template("salle_form.html", action="Modifier",
-                           salle=salle, active="salles")
+                           salle=salle, active="salles", errors={})
 
 
 @app.route("/salles/<int:salle_id>/supprimer", methods=["POST"])
@@ -886,8 +919,26 @@ def reservation_ajouter():
         salle       = salles_dict.get(int(salle_id)) if salle_id.isdigit() else None
         responsable = utilisateurs.get(session["user_id"])
 
-        if not all([salle, classe, date_str, debut_str, fin_str]):
-            flash("Tous les champs obligatoires doivent être remplis.", "error")
+        errors = {}
+        if not salle:
+            errors["salle_id"] = "Veuillez sélectionner une salle."
+        if not classe:
+            errors["classe"] = "Veuillez sélectionner au moins une filière."
+        ok, msg = Validateur.valider_champ_requis(date_str, "Date")
+        if not ok: errors["date"] = msg
+        if date_str and not errors.get("date"):
+            ok, msg = Validateur.valider_dates(date_str, date_str)
+            if not ok: errors["date"] = msg
+        if debut_str and fin_str:
+            ok, msg = Validateur.valider_horaires(debut_str, fin_str)
+            if not ok: errors["horaires"] = msg
+        elif not debut_str:
+            errors["heure_debut"] = "L'heure de début est obligatoire."
+        elif not fin_str:
+            errors["heure_fin"] = "L'heure de fin est obligatoire."
+
+        if errors:
+            flash("Veuillez corriger les erreurs ci-dessous.", "error")
         else:
             try:
                 gr = GestionReservation()
@@ -907,7 +958,7 @@ def reservation_ajouter():
                 flash(f"Réservation créée — {salle.nom} le {date_str}.", "success")
                 return redirect(url_for("reservations"))
             except (ValueError, PermissionError) as e:
-                flash(str(e), "error")
+                errors["global"] = str(e)
 
     pre_ecole_id = getattr(u_courant, "ecole_id", None)
     return render_template(
@@ -920,6 +971,7 @@ def reservation_ajouter():
         unites_json=unites_json,
         enseignants_json=enseignants_json,
         user_role=session.get("user_role"),
+        errors=locals().get("errors", {}),
     )
 
 
@@ -2062,8 +2114,25 @@ def compositions_nouvelle():
         ens_nom_ext    = request.form.get("enseignant_nom_ext", "").strip()
         ens_email_ext  = request.form.get("enseignant_email_ext", "").strip()
 
-        if not all([filiere_id, salle_id, date_str, hdeb, hfin]):
-            flash("Tous les champs obligatoires doivent être remplis.", "error")
+        errors = {}
+        if not filiere_id: errors["filiere_id"] = "Veuillez sélectionner une filière."
+        ok, msg = Validateur.valider_champ_requis(matiere, "Matière")
+        if not ok: errors["matiere"] = msg
+        if not salle_id: errors["salle_id"] = "Veuillez sélectionner une salle."
+        if date_str:
+            ok, msg = Validateur.valider_dates(date_str, date_str)
+            if not ok: errors["date"] = msg
+        else:
+            errors["date"] = "La date de composition est obligatoire."
+        if hdeb and hfin:
+            ok, msg = Validateur.valider_horaires(hdeb, hfin)
+            if not ok: errors["horaires"] = msg
+        else:
+            if not hdeb: errors["heure_debut"] = "L'heure de début est obligatoire."
+            if not hfin: errors["heure_fin"]   = "L'heure de fin est obligatoire."
+
+        if errors:
+            flash("Veuillez corriger les erreurs ci-dessous.", "error")
         else:
             try:
                 comp_data = {
@@ -2083,19 +2152,20 @@ def compositions_nouvelle():
                 res   = gc.creer_composition(comp_data, notif=notif, utilisateurs=utilisateurs)
                 if res["conflit"]:
                     c = res["conflit"]
-                    flash(f"Conflit avec {c['type']} « {c['label']} » ({c['heure_debut']}–{c['heure_fin']}).", "error")
+                    errors["global"] = f"Conflit avec {c['type']} « {c['label']} » ({c['heure_debut']}–{c['heure_fin']})."
                 else:
                     mention = " (sur cours existant)" if res["sur_cours_existant"] else ""
                     flash(f"Composition créée{mention}.", "success")
                     return redirect(url_for("compositions_liste"))
             except ValueError as e:
-                flash(str(e), "error")
+                errors["global"] = str(e)
 
     return render_template(
         "composition_form.html", active="compositions",
         ecoles_filieres=ecoles_filieres, unites_json=unites_json,
         salles=list(salles_dict.values()),
         today=date.today().isoformat(),
+        errors=locals().get("errors", {}),
     )
 
 
@@ -2172,8 +2242,27 @@ def evenements_nouveau():
         pc_ids_raw = request.form.getlist("public_cible_ids[]")
         pc_ids = [int(x) for x in pc_ids_raw if x.isdigit()]
 
-        if not all([titre, description, salle_id, date_debut_str, date_fin_str, hdeb, hfin]):
-            flash("Tous les champs obligatoires doivent être remplis.", "error")
+        errors = {}
+        ok, msg = Validateur.valider_champ_requis(titre, "Titre")
+        if not ok: errors["titre"] = msg
+        ok, msg = Validateur.valider_champ_requis(description, "Description")
+        if not ok: errors["description"] = msg
+        if not salle_id: errors["salle_id"] = "Veuillez sélectionner une salle."
+        if date_debut_str and date_fin_str:
+            ok, msg = Validateur.valider_dates(date_debut_str, date_fin_str)
+            if not ok: errors["dates"] = msg
+        else:
+            if not date_debut_str: errors["date_debut"] = "La date de début est obligatoire."
+            if not date_fin_str:   errors["date_fin"]   = "La date de fin est obligatoire."
+        if hdeb and hfin:
+            ok, msg = Validateur.valider_horaires(hdeb, hfin)
+            if not ok: errors["horaires"] = msg
+        else:
+            if not hdeb: errors["heure_debut"] = "L'heure de début est obligatoire."
+            if not hfin: errors["heure_fin"]   = "L'heure de fin est obligatoire."
+
+        if errors:
+            flash("Veuillez corriger les erreurs ci-dessous.", "error")
         else:
             try:
                 evt_data = {
@@ -2195,15 +2284,15 @@ def evenements_nouveau():
                 res   = ge.creer_evenement(evt_data, role, notif=notif, utilisateurs=utilisateurs)
                 if res["conflit"]:
                     c = res["conflit"]
-                    flash(f"Conflit salle avec {c['type']} « {c['label']} ».", "error")
+                    errors["global"] = f"Conflit salle avec {c['type']} « {c['label']} »."
                 elif res["statut"] == "valide":
                     flash("Événement créé et validé.", "success")
                     return redirect(url_for("evenements_liste"))
                 else:
-                    flash("Événement soumis — en attente de validation par un administrateur.", "info")
+                    flash("Événement soumis — en attente de validation par un administrateur.", "success")
                     return redirect(url_for("evenements_liste"))
             except ValueError as e:
-                flash(str(e), "error")
+                errors["global"] = str(e)
 
     return render_template(
         "evenement_form.html", active="evenements",
@@ -2212,6 +2301,7 @@ def evenements_nouveau():
         unites_json=unites_json,
         today=date.today().isoformat(),
         role=session.get("user_role"),
+        errors=locals().get("errors", {}),
     )
 
 
@@ -2311,6 +2401,14 @@ def evenements_refuser(evt_id):
     return redirect(url_for("evenements_liste"))
 
 
+@app.errorhandler(403)
+def acces_refuse(e):
+    flash("Accès non autorisé.", "error")
+    if "user_id" in session:
+        return redirect(url_for("dashboard"))
+    return redirect(url_for("login"))
+
+
 @app.errorhandler(404)
 def page_non_trouvee(e):
     return render_template("404.html"), 404
@@ -2318,6 +2416,8 @@ def page_non_trouvee(e):
 
 @app.errorhandler(500)
 def erreur_serveur(e):
+    import traceback
+    print(f"[ERREUR 500] {traceback.format_exc()}")
     return render_template("404.html", erreur_500=True), 500
 
 

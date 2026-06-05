@@ -49,6 +49,8 @@
         <p class="text-slate-500 text-sm">Tous les champs marqués <span class="text-red-500">*</span> sont obligatoires.</p>
       </div>
 
+      {% set errors = errors if errors is defined else {} %}
+
       {% with messages = get_flashed_messages(with_categories=true) %}
         {% for category, message in messages %}
           <div class="mb-5 flex items-center gap-2 rounded-xl px-4 py-3 text-sm border
@@ -58,28 +60,66 @@
         {% endfor %}
       {% endwith %}
 
-      <form method="POST" id="form-inscription" class="space-y-4">
+      {% if errors %}
+      <div class="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+        <div class="flex items-start gap-2 mb-1">
+          <svg class="w-4 h-4 text-red-500 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/></svg>
+          <p class="text-sm font-semibold text-red-700">Veuillez corriger les erreurs suivantes :</p>
+        </div>
+        <ul class="list-disc list-inside space-y-0.5 pl-1">
+          {% for champ, msg in errors.items() %}<li class="text-xs text-red-600">{{ msg }}</li>{% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <form method="POST" id="form-inscription" class="space-y-4" novalidate>
 
         <div class="grid grid-cols-2 gap-4">
           <div class="col-span-2">
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Nom complet <span class="text-red-500">*</span></label>
-            <input type="text" name="nom" required placeholder="Alice Dupont"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            <input type="text" name="nom" id="inp-nom" placeholder="Alice Dupont"
+              value="{{ request.form.get('nom', '') }}"
+              class="w-full rounded-xl border {{ 'border-red-400 bg-red-50' if errors.nom else 'border-slate-300 bg-slate-50' }} px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            {% if errors.nom %}<p class="mt-1 text-xs text-red-600">{{ errors.nom }}</p>{% endif %}
+            <p class="mt-1 text-xs text-red-600 hidden" id="err-nom"></p>
           </div>
           <div class="col-span-2">
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Adresse email <span class="text-red-500">*</span></label>
-            <input type="email" name="email" required placeholder="alice@univ.bj"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            <div class="relative">
+              <input type="email" name="email" id="inp-email" placeholder="alice@univ.bj"
+                value="{{ request.form.get('email', '') }}"
+                class="w-full rounded-xl border {{ 'border-red-400 bg-red-50' if errors.email else 'border-slate-300 bg-slate-50' }} px-4 py-2.5 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+              <span id="ico-email" class="absolute right-3 top-1/2 -translate-y-1/2 text-sm hidden"></span>
+            </div>
+            {% if errors.email %}<p class="mt-1 text-xs text-red-600">{{ errors.email }}</p>{% endif %}
+            <p class="mt-1 text-xs text-red-600 hidden" id="err-email"></p>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Login <span class="text-red-500">*</span></label>
-            <input type="text" name="login" required placeholder="alice"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            <input type="text" name="login" id="inp-login" placeholder="alice"
+              value="{{ request.form.get('login', '') }}"
+              class="w-full rounded-xl border {{ 'border-red-400 bg-red-50' if errors.login else 'border-slate-300 bg-slate-50' }} px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            {% if errors.login %}<p class="mt-1 text-xs text-red-600">{{ errors.login }}</p>{% endif %}
+            <p class="mt-1 text-xs text-red-600 hidden" id="err-login"></p>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Mot de passe <span class="text-red-500">*</span></label>
-            <input type="password" name="mot_de_passe" required minlength="6" placeholder="6 car. min."
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            <input type="password" name="mot_de_passe" id="inp-mdp" placeholder="6 car. min."
+              class="w-full rounded-xl border {{ 'border-red-400 bg-red-50' if errors.mot_de_passe else 'border-slate-300 bg-slate-50' }} px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+            {% if errors.mot_de_passe %}<p class="mt-1 text-xs text-red-600">{{ errors.mot_de_passe }}</p>{% endif %}
+            <!-- Barre de force + indicateurs -->
+            <div class="mt-2 space-y-1" id="mdp-strength-panel">
+              <div class="flex gap-1">
+                <div id="bar1" class="h-1 flex-1 rounded-full bg-slate-200 transition-all"></div>
+                <div id="bar2" class="h-1 flex-1 rounded-full bg-slate-200 transition-all"></div>
+                <div id="bar3" class="h-1 flex-1 rounded-full bg-slate-200 transition-all"></div>
+              </div>
+              <div class="flex gap-3 text-xs text-slate-400">
+                <span id="chk-len">○ 6 caractères min.</span>
+                <span id="chk-maj">○ 1 majuscule</span>
+                <span id="chk-num">○ 1 chiffre</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -178,6 +218,82 @@
   </div>
 
 <script>
+// ── Validation temps réel ────────────────────────────────────────────────────
+
+function setFieldError(inputId, errId, msg) {
+  const inp = document.getElementById(inputId);
+  const err = document.getElementById(errId);
+  if (!inp || !err) return;
+  if (msg) {
+    inp.classList.add('border-red-400', 'bg-red-50');
+    inp.classList.remove('border-slate-300', 'bg-slate-50');
+    err.textContent = msg; err.classList.remove('hidden');
+  } else {
+    inp.classList.remove('border-red-400', 'bg-red-50');
+    inp.classList.add('border-slate-300', 'bg-slate-50');
+    err.textContent = ''; err.classList.add('hidden');
+  }
+}
+
+// Email
+document.getElementById('inp-email')?.addEventListener('input', function() {
+  const v = this.value.trim();
+  const ico = document.getElementById('ico-email');
+  if (!v) { setFieldError('inp-email','err-email',''); ico.classList.add('hidden'); return; }
+  const ok = v.includes('@') && v.split('@').length === 2 && v.split('@')[1].includes('.');
+  ico.textContent = ok ? '✓' : '✗';
+  ico.className   = `absolute right-3 top-1/2 -translate-y-1/2 text-sm font-bold ${ok ? 'text-emerald-500' : 'text-red-400'}`;
+  ico.classList.remove('hidden');
+  setFieldError('inp-email','err-email', ok ? '' : "L'email doit contenir @ et un domaine valide (ex: nom@email.com)");
+});
+
+// Login
+document.getElementById('inp-login')?.addEventListener('blur', function() {
+  const v = this.value.trim();
+  if (!v) { setFieldError('inp-login','err-login','Ce champ est obligatoire.'); return; }
+  if (v.length < 3) { setFieldError('inp-login','err-login','Minimum 3 caractères.'); return; }
+  if (/\s/.test(v)) { setFieldError('inp-login','err-login','Pas d\'espaces autorisés.'); return; }
+  if (!/^[a-zA-Z0-9_\-]+$/.test(v)) { setFieldError('inp-login','err-login','Lettres, chiffres, tirets et underscores uniquement.'); return; }
+  setFieldError('inp-login','err-login','');
+});
+
+// Nom
+document.getElementById('inp-nom')?.addEventListener('blur', function() {
+  const v = this.value.trim();
+  if (!v) { setFieldError('inp-nom','err-nom','Ce champ est obligatoire.'); return; }
+  if (v.length < 2) { setFieldError('inp-nom','err-nom','Minimum 2 caractères.'); return; }
+  if (/\d/.test(v)) { setFieldError('inp-nom','err-nom','Le nom ne doit pas contenir de chiffres.'); return; }
+  setFieldError('inp-nom','err-nom','');
+});
+
+// Mot de passe — barre de force
+document.getElementById('inp-mdp')?.addEventListener('input', function() {
+  const v = this.value;
+  const hasLen = v.length >= 6;
+  const hasMaj = /[A-Z]/.test(v);
+  const hasNum = /[0-9]/.test(v);
+  const score  = [hasLen, hasMaj, hasNum].filter(Boolean).length;
+
+  const colors = ['bg-red-400', 'bg-orange-400', 'bg-amber-400', 'bg-emerald-500'];
+  const color  = colors[score] || 'bg-slate-200';
+  ['bar1','bar2','bar3'].forEach((id, i) => {
+    const el = document.getElementById(id);
+    el.className = `h-1 flex-1 rounded-full transition-all ${i < score ? color : 'bg-slate-200'}`;
+  });
+
+  const upd = (id, ok) => {
+    const el = document.getElementById(id);
+    el.textContent = (ok ? '● ' : '○ ') + el.textContent.replace(/^[●○] /,'');
+    el.className   = ok ? 'text-xs text-emerald-600 font-medium' : 'text-xs text-slate-400';
+  };
+  document.getElementById('chk-len').textContent = (hasLen ? '● ' : '○ ') + '6 caractères min.';
+  document.getElementById('chk-len').className   = hasLen ? 'text-xs text-emerald-600 font-medium' : 'text-xs text-slate-400';
+  document.getElementById('chk-maj').textContent = (hasMaj ? '● ' : '○ ') + '1 majuscule';
+  document.getElementById('chk-maj').className   = hasMaj ? 'text-xs text-emerald-600 font-medium' : 'text-xs text-slate-400';
+  document.getElementById('chk-num').textContent = (hasNum ? '● ' : '○ ') + '1 chiffre';
+  document.getElementById('chk-num').className   = hasNum ? 'text-xs text-emerald-600 font-medium' : 'text-xs text-slate-400';
+});
+
 const UNITES = {{ unites_json | safe }};
 
 function filterUnites() {

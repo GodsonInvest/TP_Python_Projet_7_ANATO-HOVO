@@ -3,7 +3,17 @@
 {% block heading %}Nouvelle réservation{% endblock %}
 
 {% block content %}
+{% set errors = errors if errors is defined else {} %}
 <div class="max-w-xl space-y-4">
+
+  {% if errors %}
+  <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+    <p class="text-sm font-semibold text-red-700 mb-1">Veuillez corriger les erreurs :</p>
+    <ul class="list-disc list-inside space-y-0.5">
+      {% for champ, msg in errors.items() %}<li class="text-xs text-red-600">{{ msg }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
 
   <!-- Carte contexte responsable -->
   {% if user_role == 'responsable' and pre_classe %}
