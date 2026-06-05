@@ -201,5 +201,36 @@ class BaseDonneesJSON:
             Reservation._compteur = max(r.id for r in reservations)
         return {"utilisateurs": utilisateurs, "salles": salles, "reservations": reservations}
 
+    # ── Créneaux événements ───────────────────────────────────────────────────────
+
+    def sauvegarder_creneaux_evenement(self, evenement_id: int, creneaux: list):
+        chemin = os.path.join(self._dossier, "evenement_creneaux.json")
+        records = self._lire(chemin)
+        records = [r for r in records if r.get("evenement_id") != evenement_id]
+        ts = datetime.now().isoformat()
+        for c in creneaux:
+            records.append({
+                "evenement_id": evenement_id,
+                "date":         c["date"],
+                "salle_id":     c.get("salle_id"),
+                "heure_debut":  c["heure_debut"],
+                "heure_fin":    c["heure_fin"],
+                "created_at":   ts,
+            })
+        self._ecrire(chemin, records)
+
+    def charger_creneaux_evenement(self, evenement_id: int) -> list:
+        chemin = os.path.join(self._dossier, "evenement_creneaux.json")
+        records = self._lire(chemin)
+        return sorted(
+            [r for r in records if r.get("evenement_id") == evenement_id],
+            key=lambda r: (r["date"], r["heure_debut"]),
+        )
+
+    def supprimer_creneaux_evenement(self, evenement_id: int):
+        chemin = os.path.join(self._dossier, "evenement_creneaux.json")
+        records = self._lire(chemin)
+        self._ecrire(chemin, [r for r in records if r.get("evenement_id") != evenement_id])
+
     def __repr__(self) -> str:
         return f"<BaseDonneesJSON dossier='{self._dossier}'>"

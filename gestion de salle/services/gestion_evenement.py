@@ -30,47 +30,62 @@ class GestionEvenement:
         utilisateurs: dict = None,
     ) -> dict:
         """
-        data : {titre, description, salle_id, date_debut, date_fin,
-                heure_debut, heure_fin, created_by,
-                public_cible_type, public_cible_id}
+        data : {titre, description, date_debut, date_fin, creneaux, created_by,
+                public_cible_type, public_cible_id, public_cible_ids}
+        creneaux : liste de {date, salle_id, heure_debut, heure_fin}
         role_createur : 'admin' → statut='valide' immédiatement ; sinon 'en_attente'
         Retourne : {evt_id, conflit, statut}
         """
-        h_debut = _str_heure(data["heure_debut"])
-        h_fin   = _str_heure(data["heure_fin"])
-        d_debut = _as_date(data["date_debut"])
-        d_fin   = _as_date(data["date_fin"])
+        creneaux = data.get("creneaux") or []
+        d_debut  = _as_date(data["date_debut"])
+        d_fin    = _as_date(data["date_fin"])
 
+        # Vérification que chaque créneau est dans la période
+        for c in creneaux:
+            c_date = _as_date(c["date"])
+            if not (d_debut <= c_date <= d_fin):
+                msg = (f"Le créneau du {c['date']} est hors de la période "
+                       f"{_str_date(d_debut)} → {_str_date(d_fin)}.")
+                return {"evt_id": None, "conflit": {"label": msg, "type": "periode"}, "statut": None}
+
+        # Vérification des conflits (admin uniquement)
         if role_createur == "admin":
-            d = d_debut
-            while d <= d_fin:
-                conflit = self.bd.verifier_conflit_planning(data["salle_id"], d, h_debut, h_fin)
+            for c in creneaux:
+                if not c.get("salle_id"):
+                    continue
+                c_date  = _as_date(c["date"])
+                conflit = self.bd.verifier_conflit_planning(
+                    c["salle_id"], c_date, c["heure_debut"], c["heure_fin"]
+                )
                 if conflit:
                     return {"evt_id": None, "conflit": conflit, "statut": None}
-                d += timedelta(days=1)
 
         statut = "valide" if role_createur == "admin" else "en_attente"
 
         evt = {
-            "titre":              data["titre"],
-            "description":        data.get("description", ""),
-            "salle_id":           data["salle_id"],
-            "date_debut":         _str_date(d_debut),
-            "date_fin":           _str_date(d_fin),
-            "heure_debut":        h_debut,
-            "heure_fin":          h_fin,
-            "statut":             statut,
-            "motif_refus":        "",
-            "created_by":         data["created_by"],
-            "validated_by":       data["created_by"] if role_createur == "admin" else None,
-            "created_at":         datetime.now().isoformat(),
-            "public_cible_type":  data.get("public_cible_type", "universite"),
-            "public_cible_id":    data.get("public_cible_id"),
-            "public_cible_ids":   data.get("public_cible_ids") or [],
+            "titre":             data["titre"],
+            "description":       data.get("description", ""),
+            "salle_id":          0,
+            "date_debut":        _str_date(d_debut),
+            "date_fin":          _str_date(d_fin),
+            "heure_debut":       "",
+            "heure_fin":         "",
+            "statut":            statut,
+            "motif_refus":       "",
+            "created_by":        data["created_by"],
+            "validated_by":      data["created_by"] if role_createur == "admin" else None,
+            "created_at":        datetime.now().isoformat(),
+            "public_cible_type": data.get("public_cible_type", "universite"),
+            "public_cible_id":   data.get("public_cible_id"),
+            "public_cible_ids":  data.get("public_cible_ids") or [],
         }
         evt_id = self.bd.sauvegarder_evenement(evt)
 
+        if creneaux:
+            self.bd.sauvegarder_creneaux_evenement(evt_id, creneaux)
+
         if statut == "valide" and notif and utilisateurs:
+            evt["id"] = evt_id
             self._notifier(evt, utilisateurs, notif, annulation=False)
 
         return {"evt_id": evt_id, "conflit": None, "statut": statut}
@@ -111,28 +126,55 @@ class GestionEvenement:
         self.bd.sauvegarder_evenement(evt)
         return True
 
-    def modifier_evenement(self, evt_id: int, data: dict) -> bool:
+    def modifier_evenement(self, evt_id: int, data: dict) -> dict:
+        """
+        data : {titre, description, date_debut, date_fin, creneaux,
+                public_cible_type, public_cible_id, public_cible_ids}
+        Retourne : {ok, conflit}
+        """
         evt = self.bd.charger_evenement_par_id(evt_id)
         if not evt:
-            return False
-        h_debut = _str_heure(data["heure_debut"])
-        h_fin   = _str_heure(data["heure_fin"])
-        d_debut = _as_date(data["date_debut"])
-        d_fin   = _as_date(data["date_fin"])
+            return {"ok": False, "conflit": None}
+
+        creneaux = data.get("creneaux") or []
+        d_debut  = _as_date(data["date_debut"])
+        d_fin    = _as_date(data["date_fin"])
+
+        # Vérification que chaque créneau est dans la période
+        for c in creneaux:
+            c_date = _as_date(c["date"])
+            if not (d_debut <= c_date <= d_fin):
+                msg = (f"Le créneau du {c['date']} est hors de la période "
+                       f"{_str_date(d_debut)} → {_str_date(d_fin)}.")
+                return {"ok": False, "conflit": {"label": msg, "type": "periode"}}
+
+        # Vérification des conflits
+        for c in creneaux:
+            if not c.get("salle_id"):
+                continue
+            c_date  = _as_date(c["date"])
+            conflit = self.bd.verifier_conflit_planning(
+                c["salle_id"], c_date, c["heure_debut"], c["heure_fin"],
+                exclure_evt_id=evt_id,
+            )
+            if conflit:
+                return {"ok": False, "conflit": conflit}
+
         evt.update({
             "titre":             data["titre"],
             "description":       data.get("description", ""),
-            "salle_id":          data["salle_id"],
+            "salle_id":          evt.get("salle_id", 0),
             "date_debut":        _str_date(d_debut),
             "date_fin":          _str_date(d_fin),
-            "heure_debut":       h_debut,
-            "heure_fin":         h_fin,
+            "heure_debut":       "",
+            "heure_fin":         "",
             "public_cible_type": data.get("public_cible_type", evt.get("public_cible_type", "universite")),
             "public_cible_id":   data.get("public_cible_id", evt.get("public_cible_id")),
             "public_cible_ids":  data.get("public_cible_ids") or evt.get("public_cible_ids") or [],
         })
         self.bd.sauvegarder_evenement(evt)
-        return True
+        self.bd.sauvegarder_creneaux_evenement(evt_id, creneaux)
+        return {"ok": True, "conflit": None}
 
     # ── Notifications ─────────────────────────────────────────────────────────
 

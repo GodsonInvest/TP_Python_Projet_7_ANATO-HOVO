@@ -170,16 +170,27 @@ class BaseDonneesSQLite:
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             titre        TEXT    NOT NULL,
             description  TEXT    NOT NULL DEFAULT '',
-            salle_id     INTEGER NOT NULL,
+            salle_id     INTEGER NOT NULL DEFAULT 0,
             date_debut   TEXT    NOT NULL,
             date_fin     TEXT    NOT NULL,
-            heure_debut  TEXT    NOT NULL,
-            heure_fin    TEXT    NOT NULL,
+            heure_debut  TEXT    NOT NULL DEFAULT '',
+            heure_fin    TEXT    NOT NULL DEFAULT '',
             statut       TEXT    NOT NULL DEFAULT 'en_attente',
             motif_refus  TEXT    NOT NULL DEFAULT '',
             created_by   INTEGER NOT NULL,
             validated_by INTEGER,
             created_at   TEXT    NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS evenement_creneaux (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            evenement_id INTEGER NOT NULL,
+            date         TEXT    NOT NULL,
+            salle_id     INTEGER,
+            heure_debut  TEXT    NOT NULL,
+            heure_fin    TEXT    NOT NULL,
+            created_at   TEXT    NOT NULL,
+            FOREIGN KEY (evenement_id) REFERENCES evenements(id) ON DELETE CASCADE
         );
         """
         with self._connexion() as conn:
@@ -731,11 +742,33 @@ class BaseDonneesSQLite:
                 return {"type": "composition", "id": row["id"], "label": row["matiere"] or "composition",
                         "heure_debut": row["heure_debut"], "heure_fin": row["heure_fin"]}
 
-            sql = ("SELECT * FROM evenements WHERE salle_id=? AND date_debut<=? AND date_fin>=? "
-                   "AND heure_debut<? AND heure_fin>? AND statut='valide'")
+            # Creneaux individuels (nouveau système)
+            sql = (
+                "SELECT ec.evenement_id, ec.heure_debut, ec.heure_fin, e.titre "
+                "FROM evenement_creneaux ec JOIN evenements e ON ec.evenement_id=e.id "
+                "WHERE ec.salle_id=? AND ec.date=? "
+                "AND ec.heure_debut<? AND ec.heure_fin>? AND e.statut='valide'"
+            )
+            args = [salle_id, d_str, heure_fin, heure_debut]
+            if exclure_evt_id is not None:
+                sql += " AND ec.evenement_id!=?"
+                args.append(exclure_evt_id)
+            row = conn.execute(sql, args).fetchone()
+            if row:
+                return {"type": "evenement", "id": row["evenement_id"], "label": row["titre"],
+                        "heure_debut": row["heure_debut"], "heure_fin": row["heure_fin"]}
+
+            # Événements anciens style (heure_debut/heure_fin non vides, sans creneaux)
+            sql = (
+                "SELECT e.* FROM evenements e "
+                "WHERE e.salle_id=? AND e.date_debut<=? AND e.date_fin>=? "
+                "AND e.heure_debut!='' AND e.heure_debut<? AND e.heure_fin>? "
+                "AND e.statut='valide' "
+                "AND NOT EXISTS (SELECT 1 FROM evenement_creneaux WHERE evenement_id=e.id)"
+            )
             args = [salle_id, d_str, d_str, heure_fin, heure_debut]
             if exclure_evt_id is not None:
-                sql += " AND id!=?"
+                sql += " AND e.id!=?"
                 args.append(exclure_evt_id)
             row = conn.execute(sql, args).fetchone()
             if row:
@@ -800,11 +833,11 @@ class BaseDonneesSQLite:
         params = (
             evt["titre"],
             evt.get("description", ""),
-            evt["salle_id"],
+            evt.get("salle_id", 0),
             evt["date_debut"],
             evt["date_fin"],
-            evt["heure_debut"],
-            evt["heure_fin"],
+            evt.get("heure_debut", ""),
+            evt.get("heure_fin", ""),
             evt.get("statut", "en_attente"),
             evt.get("motif_refus", ""),
             evt["created_by"],
@@ -834,15 +867,58 @@ class BaseDonneesSQLite:
                 )
         return evt["id"]
 
+    def sauvegarder_creneaux_evenement(self, evenement_id: int, creneaux: list):
+        """Remplace tous les créneaux d'un événement par la nouvelle liste."""
+        ts = datetime.now().isoformat()
+        with self._connexion() as conn:
+            conn.execute("DELETE FROM evenement_creneaux WHERE evenement_id=?", (evenement_id,))
+            for c in creneaux:
+                conn.execute(
+                    "INSERT INTO evenement_creneaux "
+                    "(evenement_id, date, salle_id, heure_debut, heure_fin, created_at) "
+                    "VALUES (?,?,?,?,?,?)",
+                    (evenement_id, c["date"], c.get("salle_id"),
+                     c["heure_debut"], c["heure_fin"], ts),
+                )
+
+    def charger_creneaux_evenement(self, evenement_id: int) -> list:
+        with self._connexion() as conn:
+            rows = conn.execute(
+                "SELECT * FROM evenement_creneaux WHERE evenement_id=? ORDER BY date, heure_debut",
+                (evenement_id,),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def supprimer_creneaux_evenement(self, evenement_id: int):
+        with self._connexion() as conn:
+            conn.execute("DELETE FROM evenement_creneaux WHERE evenement_id=?", (evenement_id,))
+
     def charger_evenement_par_id(self, evt_id: int) -> Optional[dict]:
         with self._connexion() as conn:
             row = conn.execute("SELECT * FROM evenements WHERE id=?", (evt_id,)).fetchone()
-        return dict(row) if row else None
+            if not row:
+                return None
+            evt = dict(row)
+            creneaux = conn.execute(
+                "SELECT * FROM evenement_creneaux WHERE evenement_id=? ORDER BY date, heure_debut",
+                (evt_id,),
+            ).fetchall()
+            evt["creneaux"] = [dict(c) for c in creneaux]
+        return evt
 
     def charger_tous_evenements(self) -> list:
         with self._connexion() as conn:
             rows = conn.execute("SELECT * FROM evenements ORDER BY date_debut DESC").fetchall()
-        return [dict(r) for r in rows]
+            result = []
+            for row in rows:
+                evt = dict(row)
+                creneaux = conn.execute(
+                    "SELECT * FROM evenement_creneaux WHERE evenement_id=? ORDER BY date, heure_debut",
+                    (evt["id"],),
+                ).fetchall()
+                evt["creneaux"] = [dict(c) for c in creneaux]
+                result.append(evt)
+        return result
 
     def supprimer_evenement(self, evt_id: int) -> bool:
         with self._connexion() as conn:

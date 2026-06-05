@@ -4,7 +4,7 @@
 
 {% block content %}
 {% set errors = errors if errors is defined else {} %}
-<div class="max-w-xl space-y-5">
+<div class="max-w-2xl space-y-5">
 
   {% if errors %}
   <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
@@ -26,8 +26,9 @@
 
   <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
     <div class="px-6 py-6">
-      <form method="POST" class="space-y-5">
+      <form method="POST" id="evt-form" class="space-y-5">
 
+        <!-- Titre -->
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">Titre <span class="text-red-500">*</span></label>
           <input type="text" name="titre" required value="{{ evt.titre if evt else '' }}"
@@ -35,6 +36,7 @@
             class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
         </div>
 
+        <!-- Description -->
         <div>
           <label class="block text-sm font-medium text-slate-700 mb-1.5">Description <span class="text-red-500">*</span></label>
           <textarea name="description" required rows="3"
@@ -42,52 +44,53 @@
             class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all resize-none">{{ evt.description if evt else '' }}</textarea>
         </div>
 
-        <div>
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Salle <span class="text-red-500">*</span></label>
-          <select name="salle_id" required
-            class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
-            <option value="">— Sélectionner —</option>
-            {% for s in salles %}
-            <option value="{{ s.id }}" {% if evt and evt.salle_id == s.id %}selected{% endif %}>{{ s.nom }} ({{ s.capacite }} places)</option>
-            {% endfor %}
-          </select>
-        </div>
-
+        <!-- Période -->
         <div class="grid grid-cols-2 gap-4">
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Date début <span class="text-red-500">*</span></label>
-            <input type="date" name="date_debut" required min="{{ today }}"
+            <input type="date" id="date_debut" name="date_debut" required min="{{ today }}"
               value="{{ evt.date_debut if evt else '' }}"
               class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
           </div>
           <div>
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Date fin <span class="text-red-500">*</span></label>
-            <input type="date" name="date_fin" required min="{{ today }}"
+            <input type="date" id="date_fin" name="date_fin" required min="{{ today }}"
               value="{{ evt.date_fin if evt else '' }}"
               class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
           </div>
         </div>
 
-        <div class="grid grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Heure début <span class="text-red-500">*</span></label>
-            <input type="time" name="heure_debut" value="{{ evt.heure_debut if evt else '08:00' }}"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
+        <!-- ── SECTION CRÉNEAUX ─────────────────────────────────────────────── -->
+        <div id="creneaux-section" class="hidden space-y-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-700">Créneaux horaires par jour</h3>
+            <button type="button" id="btn-verifier" onclick="verifierConflits()"
+              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100 transition">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+              Vérifier les conflits
+            </button>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Heure fin <span class="text-red-500">*</span></label>
-            <input type="time" name="heure_fin" value="{{ evt.heure_fin if evt else '18:00' }}"
-              class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"/>
-          </div>
+
+          <div id="conflits-result" class="hidden"></div>
+          <div id="jours-container" class="space-y-3"></div>
         </div>
 
-        <!-- Public cible -->
+        <p id="creneaux-hint" class="text-xs text-slate-400 italic hidden">
+          Les créneaux s'afficheront automatiquement quand vous aurez sélectionné les deux dates.
+        </p>
+
+        {% if errors.get('creneaux') %}
+        <p class="text-xs text-red-600 font-medium">{{ errors['creneaux'] }}</p>
+        {% endif %}
+
+        <!-- ── PUBLIC CIBLE ──────────────────────────────────────────────────── -->
         <div class="space-y-3">
           <label class="block text-sm font-medium text-slate-700">Public concerné <span class="text-red-500">*</span></label>
 
           {% set pc_type = evt.public_cible_type if evt else 'universite' %}
 
-          <!-- Choix du périmètre -->
           <div class="grid grid-cols-3 gap-2">
             <label class="flex items-center gap-2 px-3 py-2.5 rounded-xl border cursor-pointer transition
               {{ 'border-indigo-400 bg-indigo-50' if pc_type == 'universite' else 'border-slate-200 bg-white hover:bg-slate-50' }}"
@@ -115,12 +118,10 @@
             </label>
           </div>
 
-          <!-- Hint université -->
           <p id="cible-universite-hint" class="text-xs text-slate-400 {{ 'hidden' if pc_type != 'universite' else '' }}">
             Tous les étudiants, enseignants et responsables recevront la notification.
           </p>
 
-          <!-- Cases à cocher écoles (multi-sélection) -->
           <div id="cible-ecoles-row" class="{{ '' if pc_type == 'ecole' else 'hidden' }}">
             <p class="text-xs text-slate-500 mb-2">Sélectionnez une ou plusieurs écoles / facultés :</p>
             <div class="rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden max-h-52 overflow-y-auto">
@@ -139,16 +140,12 @@
             <p class="text-xs text-slate-400 mt-1.5" id="ecoles-counter">Aucune école sélectionnée</p>
           </div>
 
-          <!-- Sélection filière (école → filière) -->
           <div id="cible-filiere-section" class="{{ '' if pc_type == 'filiere' else 'hidden' }}">
             <select id="cible-ecole-select" onchange="filterCibleFilieres()"
               class="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all mb-2">
               <option value="">— Sélectionner une école —</option>
               {% for ef in ecoles_filieres %}
-              <option value="{{ ef.ecole.id }}"
-                {% if evt and evt.public_cible_type == 'filiere' %}
-                  {# On ne peut pas pré-sélectionner l'école ici sans JS, l'init le fera #}
-                {% endif %}>
+              <option value="{{ ef.ecole.id }}">
                 {% if ef.ecole.abreviation %}{{ ef.ecole.abreviation }} — {% endif %}{{ ef.ecole.nom }}
               </option>
               {% endfor %}
@@ -175,17 +172,21 @@
   </div>
 </div>
 
+{% set _salles_opts %}{% for s in salles %}<option value="{{ s.id }}">{{ s.nom }} ({{ s.capacite }} pl.)</option>{% endfor %}{% endset %}
 <script>
-const UNITES_EVT    = {{ unites_json|safe }};
-const PC_IDS_SAVED  = {{ (evt.public_cible_ids if evt and evt.public_cible_type == 'ecole' and evt.public_cible_ids else [])|tojson }};
-const PC_FILIERE_ID = {{ (evt.public_cible_id if evt and evt.public_cible_type == 'filiere' and evt.public_cible_id else none)|tojson }};
+// ── Données injectées depuis Flask ────────────────────────────────────────────
+const SALLES_OPT_HTML    = {{ _salles_opts | tojson }};
+const UNITES_EVT         = {{ unites_json|safe }};
+const PC_IDS_SAVED       = {{ (evt.public_cible_ids if evt and evt.public_cible_type == 'ecole' and evt.public_cible_ids else [])|tojson }};
+const PC_FILIERE_ID      = {{ (evt.public_cible_id if evt and evt.public_cible_type == 'filiere' and evt.public_cible_id else none)|tojson }};
+const CRENEAUX_EXISTANTS = {{ creneaux_json|safe }};
+const EVT_ID             = {{ (evt.id if evt else none)|tojson }};
 
-// ── Onglets périmètre ──────────────────────────────────────────────────────
+// ── Onglets périmètre ──────────────────────────────────────────────────────────
 function switchCible(type) {
   document.getElementById('cible-universite-hint').classList.toggle('hidden', type !== 'universite');
   document.getElementById('cible-ecoles-row').classList.toggle('hidden',      type !== 'ecole');
   document.getElementById('cible-filiere-section').classList.toggle('hidden', type !== 'filiere');
-
   ['universite','ecole','filiere'].forEach(t => {
     const lbl = document.getElementById('lbl-' + t);
     lbl.classList.toggle('border-indigo-400', t === type);
@@ -195,7 +196,6 @@ function switchCible(type) {
   });
 }
 
-// ── Compteur d'écoles cochées ──────────────────────────────────────────────
 function updateEcolesCounter() {
   const checked = document.querySelectorAll('.ecole-checkbox:checked').length;
   const el = document.getElementById('ecoles-counter');
@@ -204,12 +204,10 @@ function updateEcolesCounter() {
     : `${checked} écoles sélectionnées`;
 }
 
-// ── Cascade école → filière ────────────────────────────────────────────────
 function filterCibleFilieres() {
   const ecoleId    = parseInt(document.getElementById('cible-ecole-select').value);
   const filiereRow = document.getElementById('cible-filiere-row');
   const sel        = document.getElementById('cible-filiere-select');
-
   sel.innerHTML = '<option value="">— Sélectionner une filière —</option>';
   if (ecoleId) {
     UNITES_EVT.filter(u => u.ecole_id === ecoleId).forEach(u => {
@@ -221,29 +219,261 @@ function filterCibleFilieres() {
   filiereRow.classList.toggle('hidden', !ecoleId);
 }
 
-function updateFiliereId() { /* select has name, nothing extra needed */ }
+function updateFiliereId() {}
 
-// ── Init en mode édition ───────────────────────────────────────────────────
-(function init() {
-  const type = document.querySelector('input[name="public_cible_type"]:checked')?.value;
-  if (!type || type === 'universite') return;
+// ── Génération des jours ───────────────────────────────────────────────────────
 
-  if (type === 'ecole' && PC_IDS_SAVED.length) {
-    document.querySelectorAll('.ecole-checkbox').forEach(cb => {
-      if (PC_IDS_SAVED.includes(parseInt(cb.value))) cb.checked = true;
-    });
-    updateEcolesCounter();
+function _dateStr(d) {
+  return d.toISOString().slice(0, 10);
+}
+
+function _nomJour(d) {
+  return d.toLocaleDateString('fr-FR', {weekday:'long', day:'2-digit', month:'long', year:'numeric'});
+}
+
+function collecterCreneaux() {
+  const rows = document.querySelectorAll('.creneau-row');
+  return Array.from(rows).map(row => ({
+    date:        row.dataset.date,
+    salle_id:    row.querySelector('.creneau-salle').value
+                  ? parseInt(row.querySelector('.creneau-salle').value) : null,
+    heure_debut: row.querySelector('.creneau-hdeb').value,
+    heure_fin:   row.querySelector('.creneau-hfin').value,
+  })).filter(c => c.date && c.heure_debut && c.heure_fin);
+}
+
+function genererJours() {
+  const dateDebut = document.getElementById('date_debut').value;
+  const dateFin   = document.getElementById('date_fin').value;
+  const section   = document.getElementById('creneaux-section');
+  const hint      = document.getElementById('creneaux-hint');
+
+  if (!dateDebut || !dateFin || dateDebut > dateFin) {
+    section.classList.add('hidden');
+    hint.classList.toggle('hidden', !dateDebut && !dateFin);
+    return;
   }
 
-  if (type === 'filiere' && PC_FILIERE_ID) {
-    // Trouver l'école de cette filière et pré-sélectionner le cascade
-    const unite = UNITES_EVT.find(u => u.id === PC_FILIERE_ID);
-    if (unite) {
-      const ecoleEl = document.getElementById('cible-ecole-select');
-      ecoleEl.value = unite.ecole_id;
-      filterCibleFilieres();
-      document.getElementById('cible-filiere-select').value = PC_FILIERE_ID;
+  // Préserver les créneaux déjà saisis avant régénération
+  const creneauxActuels = collecterCreneaux();
+  const container = document.getElementById('jours-container');
+  container.innerHTML = '';
+  hint.classList.add('hidden');
+
+  const d   = new Date(dateDebut + 'T00:00:00');
+  const fin = new Date(dateFin   + 'T00:00:00');
+
+  while (d <= fin) {
+    const dateStr = _dateStr(d);
+    const jourDiv = document.createElement('div');
+    jourDiv.className = 'border border-slate-200 rounded-xl overflow-hidden bg-white';
+    jourDiv.dataset.date = dateStr;
+
+    jourDiv.innerHTML = `
+      <div class="flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200">
+        <h4 class="text-sm font-semibold text-slate-700 capitalize">${_nomJour(new Date(dateStr + 'T12:00:00'))}</h4>
+        <button type="button" onclick="ajouterCreneau('${dateStr}')"
+          class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition border border-indigo-200">
+          + Ajouter un créneau
+        </button>
+      </div>
+      <div class="creneaux-liste px-4 py-3 space-y-2">
+        <p class="creneau-vide text-xs text-slate-400 italic">Aucun créneau — jour libre</p>
+      </div>
+    `;
+    container.appendChild(jourDiv);
+
+    // Remplir les créneaux existants pour ce jour
+    const source = creneauxActuels.length > 0 ? creneauxActuels : CRENEAUX_EXISTANTS;
+    source.filter(c => c.date === dateStr).forEach(c => {
+      _ajouterCreneauDom(dateStr, c.salle_id, c.heure_debut, c.heure_fin);
+    });
+
+    d.setDate(d.getDate() + 1);
+  }
+
+  section.classList.remove('hidden');
+  document.getElementById('conflits-result').classList.add('hidden');
+}
+
+function ajouterCreneau(dateStr, salleId = '', hdeb = '08:00', hfin = '18:00') {
+  _ajouterCreneauDom(dateStr, salleId, hdeb, hfin);
+}
+
+function _ajouterCreneauDom(dateStr, salleId, hdeb, hfin) {
+  const jourDiv = document.querySelector(`[data-date="${dateStr}"]`);
+  if (!jourDiv) return;
+  const liste   = jourDiv.querySelector('.creneaux-liste');
+  const vide    = liste.querySelector('.creneau-vide');
+  if (vide) vide.remove();
+
+  const row = document.createElement('div');
+  row.className = 'creneau-row flex flex-wrap items-center gap-2 py-1.5 border-b border-slate-100 last:border-0';
+  row.dataset.date = dateStr;
+
+  // Dropdown salles
+  const salleWrap = document.createElement('div');
+  salleWrap.className = 'flex-1 min-w-36';
+  salleWrap.innerHTML = `
+    <select class="creneau-salle w-full rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white transition">
+      <option value="">— Salle —</option>
+      ${SALLES_OPT_HTML}
+    </select>
+  `;
+  if (salleId) salleWrap.querySelector('select').value = String(salleId);
+
+  // Heure début
+  const hdebWrap = document.createElement('div');
+  hdebWrap.innerHTML = `
+    <input type="time" class="creneau-hdeb rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white transition"
+      value="${hdeb || '08:00'}" oninput="validerHorairesRow(this)"/>
+  `;
+
+  const sep = document.createElement('span');
+  sep.className = 'text-xs text-slate-400 font-medium';
+  sep.textContent = 'à';
+
+  // Heure fin
+  const hfinWrap = document.createElement('div');
+  hfinWrap.innerHTML = `
+    <input type="time" class="creneau-hfin rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:bg-white transition"
+      value="${hfin || '18:00'}" oninput="validerHorairesRow(this)"/>
+  `;
+
+  const errSpan = document.createElement('span');
+  errSpan.className = 'creneau-err text-red-500 text-xs hidden';
+  errSpan.textContent = 'Heure fin ≤ début';
+
+  // Bouton supprimer
+  const btnSuppr = document.createElement('button');
+  btnSuppr.type = 'button';
+  btnSuppr.className = 'inline-flex items-center px-2 py-1.5 rounded-lg text-xs font-semibold text-red-500 hover:bg-red-50 transition border border-transparent hover:border-red-200';
+  btnSuppr.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>';
+  btnSuppr.onclick = function() { supprimerCreneau(this); };
+
+  row.appendChild(salleWrap);
+  row.appendChild(hdebWrap);
+  row.appendChild(sep);
+  row.appendChild(hfinWrap);
+  row.appendChild(errSpan);
+  row.appendChild(btnSuppr);
+  liste.appendChild(row);
+}
+
+function supprimerCreneau(btn) {
+  const row     = btn.closest('.creneau-row');
+  const liste   = row.parentElement;
+  const dateStr = row.dataset.date;
+  row.remove();
+  if (!liste.querySelector('.creneau-row')) {
+    const vide = document.createElement('p');
+    vide.className = 'creneau-vide text-xs text-slate-400 italic';
+    vide.textContent = 'Aucun créneau — jour libre';
+    liste.appendChild(vide);
+  }
+}
+
+function validerHorairesRow(input) {
+  const row   = input.closest('.creneau-row');
+  const hdeb  = row.querySelector('.creneau-hdeb').value;
+  const hfin  = row.querySelector('.creneau-hfin').value;
+  const err   = row.querySelector('.creneau-err');
+  const invalide = hdeb && hfin && hdeb >= hfin;
+  err.classList.toggle('hidden', !invalide);
+  row.querySelector('.creneau-hfin').classList.toggle('border-red-400', invalide);
+}
+
+// ── Vérification des conflits ─────────────────────────────────────────────────
+
+async function verifierConflits() {
+  const creneaux = collecterCreneaux();
+  const div      = document.getElementById('conflits-result');
+  const btn      = document.getElementById('btn-verifier');
+
+  btn.disabled = true;
+  btn.textContent = 'Vérification…';
+
+  try {
+    const resp = await fetch('/api/evenements/verifier-conflits', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({creneaux, evt_id: EVT_ID}),
+    });
+    const data = await resp.json();
+
+    div.classList.remove('hidden');
+    if (!data.conflits || data.conflits.length === 0) {
+      div.innerHTML = '<p class="text-sm text-emerald-600 font-semibold">✓ Aucun conflit détecté.</p>';
+    } else {
+      div.innerHTML = `
+        <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3">
+          <p class="text-sm font-semibold text-red-700 mb-2">${data.conflits.length} conflit(s) détecté(s) :</p>
+          <ul class="list-disc list-inside space-y-1">
+            ${data.conflits.map(c => `<li class="text-xs text-red-600">${c.message}</li>`).join('')}
+          </ul>
+        </div>`;
     }
+  } catch(e) {
+    div.classList.remove('hidden');
+    div.innerHTML = '<p class="text-xs text-red-500">Erreur lors de la vérification.</p>';
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = `<svg class="w-3.5 h-3.5 inline mr-1" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>Vérifier les conflits`;
+}
+
+// ── Sérialisation au submit ───────────────────────────────────────────────────
+
+document.getElementById('evt-form').addEventListener('submit', function() {
+  document.querySelectorAll('.creneau-hidden').forEach(el => el.remove());
+
+  const creneaux = collecterCreneaux();
+  creneaux.forEach((c, idx) => {
+    [['date', c.date], ['salle_id', c.salle_id ?? ''], ['heure_debut', c.heure_debut], ['heure_fin', c.heure_fin]]
+      .forEach(([field, val]) => {
+        const inp = document.createElement('input');
+        inp.type  = 'hidden';
+        inp.name  = `creneaux[${idx}][${field}]`;
+        inp.value = val;
+        inp.className = 'creneau-hidden';
+        this.appendChild(inp);
+      });
+  });
+});
+
+// ── Écoute des dates ──────────────────────────────────────────────────────────
+
+document.getElementById('date_debut').addEventListener('change', genererJours);
+document.getElementById('date_fin').addEventListener('change', genererJours);
+
+// ── Init en mode édition ──────────────────────────────────────────────────────
+
+(function init() {
+  // Public cible
+  const type = document.querySelector('input[name="public_cible_type"]:checked')?.value;
+  if (type && type !== 'universite') {
+    if (type === 'ecole' && PC_IDS_SAVED.length) {
+      document.querySelectorAll('.ecole-checkbox').forEach(cb => {
+        if (PC_IDS_SAVED.includes(parseInt(cb.value))) cb.checked = true;
+      });
+      updateEcolesCounter();
+    }
+    if (type === 'filiere' && PC_FILIERE_ID) {
+      const unite = UNITES_EVT.find(u => u.id === PC_FILIERE_ID);
+      if (unite) {
+        const ecoleEl = document.getElementById('cible-ecole-select');
+        ecoleEl.value = unite.ecole_id;
+        filterCibleFilieres();
+        document.getElementById('cible-filiere-select').value = PC_FILIERE_ID;
+      }
+    }
+  }
+
+  // Générer les créneaux si les dates sont déjà renseignées (mode édition)
+  if (document.getElementById('date_debut').value && document.getElementById('date_fin').value) {
+    genererJours();
+  } else {
+    document.getElementById('creneaux-hint').classList.remove('hidden');
   }
 })();
 </script>

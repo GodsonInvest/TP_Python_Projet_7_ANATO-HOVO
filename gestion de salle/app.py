@@ -7,7 +7,7 @@ from datetime import date, time as dtime, datetime, timedelta
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from flask import Flask, render_template, request, redirect, url_for, session, flash, Response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, Response, jsonify
 import csv, io
 
 from models.etablissement import Ecole, UniteFormation
@@ -1196,15 +1196,27 @@ def planning():
                     C_COMP, "composition",
                 ))
 
-        # Événements validés
+        # Événements validés — un bloc par créneau
         for evt in tous_evts:
-            if evt["date_debut"] <= d.isoformat() <= evt["date_fin"]:
-                blocs.append(_bloc(
-                    evt["heure_debut"], evt["heure_fin"],
-                    evt["titre"],
-                    "",
-                    C_EVT, "evenement",
-                ))
+            creneaux_evt = evt.get("creneaux") or []
+            if creneaux_evt:
+                for cren in creneaux_evt:
+                    if cren["date"] == d.isoformat():
+                        salle_cren = salles_dict.get(cren.get("salle_id"))
+                        blocs.append(_bloc(
+                            cren["heure_debut"], cren["heure_fin"],
+                            evt["titre"],
+                            salle_cren.nom if salle_cren else "",
+                            C_EVT, "evenement",
+                        ))
+            else:
+                # Rétro-compatibilité : événements anciens style
+                if (evt.get("heure_debut") and evt["date_debut"] <= d.isoformat() <= evt["date_fin"]):
+                    blocs.append(_bloc(
+                        evt["heure_debut"], evt["heure_fin"],
+                        evt["titre"], "",
+                        C_EVT, "evenement",
+                    ))
 
         blocs.sort(key=lambda b: b["top"])
         jours.append({
@@ -2228,55 +2240,63 @@ def evenements_nouveau():
     unites_json = json.dumps([u.to_dict() for u in unites])
 
     if request.method == "POST":
-        titre       = request.form.get("titre", "").strip()
-        description = request.form.get("description", "").strip()
-        salle_id_str = request.form.get("salle_id", "").strip()
-        salle_id    = int(salle_id_str) if salle_id_str.isdigit() else None
+        titre          = request.form.get("titre", "").strip()
+        description    = request.form.get("description", "").strip()
         date_debut_str = request.form.get("date_debut", "").strip()
         date_fin_str   = request.form.get("date_fin", "").strip()
-        hdeb = request.form.get("heure_debut", "").strip()
-        hfin = request.form.get("heure_fin", "").strip()
-        pc_type = request.form.get("public_cible_type", "universite")
-        pc_id_str = request.form.get("public_cible_id", "").strip()
-        pc_id = int(pc_id_str) if pc_id_str.isdigit() else None
-        pc_ids_raw = request.form.getlist("public_cible_ids[]")
-        pc_ids = [int(x) for x in pc_ids_raw if x.isdigit()]
+        pc_type        = request.form.get("public_cible_type", "universite")
+        pc_id_str      = request.form.get("public_cible_id", "").strip()
+        pc_id          = int(pc_id_str) if pc_id_str.isdigit() else None
+        pc_ids_raw     = request.form.getlist("public_cible_ids[]")
+        pc_ids         = [int(x) for x in pc_ids_raw if x.isdigit()]
+
+        # Parsing des créneaux depuis le formulaire
+        creneaux = []
+        i = 0
+        while True:
+            d_c = request.form.get(f"creneaux[{i}][date]", "").strip()
+            if not d_c:
+                break
+            s_c  = request.form.get(f"creneaux[{i}][salle_id]", "").strip()
+            hd_c = request.form.get(f"creneaux[{i}][heure_debut]", "").strip()
+            hf_c = request.form.get(f"creneaux[{i}][heure_fin]", "").strip()
+            if hd_c and hf_c:
+                creneaux.append({
+                    "date":        d_c,
+                    "salle_id":    int(s_c) if s_c.isdigit() else None,
+                    "heure_debut": hd_c,
+                    "heure_fin":   hf_c,
+                })
+            i += 1
 
         errors = {}
         ok, msg = Validateur.valider_champ_requis(titre, "Titre")
         if not ok: errors["titre"] = msg
         ok, msg = Validateur.valider_champ_requis(description, "Description")
         if not ok: errors["description"] = msg
-        if not salle_id: errors["salle_id"] = "Veuillez sélectionner une salle."
         if date_debut_str and date_fin_str:
             ok, msg = Validateur.valider_dates(date_debut_str, date_fin_str)
             if not ok: errors["dates"] = msg
         else:
             if not date_debut_str: errors["date_debut"] = "La date de début est obligatoire."
             if not date_fin_str:   errors["date_fin"]   = "La date de fin est obligatoire."
-        if hdeb and hfin:
-            ok, msg = Validateur.valider_horaires(hdeb, hfin)
-            if not ok: errors["horaires"] = msg
-        else:
-            if not hdeb: errors["heure_debut"] = "L'heure de début est obligatoire."
-            if not hfin: errors["heure_fin"]   = "L'heure de fin est obligatoire."
+        if not creneaux:
+            errors["creneaux"] = "Veuillez définir au moins un créneau horaire."
 
         if errors:
             flash("Veuillez corriger les erreurs ci-dessous.", "error")
         else:
             try:
                 evt_data = {
-                    "titre":              titre,
-                    "description":        description,
-                    "salle_id":           salle_id,
-                    "date_debut":         date.fromisoformat(date_debut_str),
-                    "date_fin":           date.fromisoformat(date_fin_str),
-                    "heure_debut":        hdeb,
-                    "heure_fin":          hfin,
-                    "created_by":         session["user_id"],
-                    "public_cible_type":  pc_type,
-                    "public_cible_id":    pc_id,
-                    "public_cible_ids":   pc_ids,
+                    "titre":             titre,
+                    "description":       description,
+                    "date_debut":        date.fromisoformat(date_debut_str),
+                    "date_fin":          date.fromisoformat(date_fin_str),
+                    "creneaux":          creneaux,
+                    "created_by":        session["user_id"],
+                    "public_cible_type": pc_type,
+                    "public_cible_id":   pc_id,
+                    "public_cible_ids":  pc_ids,
                 }
                 ge    = GestionEvenement(bd)
                 notif = _get_notif()
@@ -2284,7 +2304,11 @@ def evenements_nouveau():
                 res   = ge.creer_evenement(evt_data, role, notif=notif, utilisateurs=utilisateurs)
                 if res["conflit"]:
                     c = res["conflit"]
-                    errors["global"] = f"Conflit salle avec {c['type']} « {c['label']} »."
+                    t = c.get("type", "")
+                    if t == "periode":
+                        errors["global"] = c["label"]
+                    else:
+                        errors["creneaux"] = f"Conflit : {t} « {c['label']} » ({c.get('heure_debut','')}–{c.get('heure_fin','')})."
                 elif res["statut"] == "valide":
                     flash("Événement créé et validé.", "success")
                     return redirect(url_for("evenements_liste"))
@@ -2299,6 +2323,7 @@ def evenements_nouveau():
         salles=list(salles_dict.values()),
         ecoles_filieres=ecoles_filieres,
         unites_json=unites_json,
+        creneaux_json=json.dumps([]),
         today=date.today().isoformat(),
         role=session.get("user_role"),
         errors=locals().get("errors", {}),
@@ -2333,44 +2358,114 @@ def evenements_modifier(evt_id):
     ]
     unites_json = json.dumps([u.to_dict() for u in unites])
 
+    creneaux_existants = bd.charger_creneaux_evenement(evt_id)
+
     if request.method == "POST":
-        titre       = request.form.get("titre", "").strip()
-        description = request.form.get("description", "").strip()
-        salle_id_str = request.form.get("salle_id", "").strip()
-        salle_id    = int(salle_id_str) if salle_id_str.isdigit() else None
+        titre          = request.form.get("titre", "").strip()
+        description    = request.form.get("description", "").strip()
         date_debut_str = request.form.get("date_debut", "").strip()
         date_fin_str   = request.form.get("date_fin", "").strip()
-        hdeb = request.form.get("heure_debut", "").strip()
-        hfin = request.form.get("heure_fin", "").strip()
-        pc_type = request.form.get("public_cible_type", "universite")
-        pc_id_str = request.form.get("public_cible_id", "").strip()
-        pc_id = int(pc_id_str) if pc_id_str.isdigit() else None
-        pc_ids_raw = request.form.getlist("public_cible_ids[]")
-        pc_ids = [int(x) for x in pc_ids_raw if x.isdigit()]
-        if all([titre, description, salle_id, date_debut_str, date_fin_str, hdeb, hfin]):
-            ge = GestionEvenement(bd)
-            ge.modifier_evenement(evt_id, {
-                "titre": titre, "description": description, "salle_id": salle_id,
-                "date_debut": date.fromisoformat(date_debut_str),
-                "date_fin":   date.fromisoformat(date_fin_str),
-                "heure_debut": hdeb, "heure_fin": hfin,
+        pc_type        = request.form.get("public_cible_type", "universite")
+        pc_id_str      = request.form.get("public_cible_id", "").strip()
+        pc_id          = int(pc_id_str) if pc_id_str.isdigit() else None
+        pc_ids_raw     = request.form.getlist("public_cible_ids[]")
+        pc_ids         = [int(x) for x in pc_ids_raw if x.isdigit()]
+
+        creneaux = []
+        i = 0
+        while True:
+            d_c = request.form.get(f"creneaux[{i}][date]", "").strip()
+            if not d_c:
+                break
+            s_c  = request.form.get(f"creneaux[{i}][salle_id]", "").strip()
+            hd_c = request.form.get(f"creneaux[{i}][heure_debut]", "").strip()
+            hf_c = request.form.get(f"creneaux[{i}][heure_fin]", "").strip()
+            if hd_c and hf_c:
+                creneaux.append({
+                    "date":        d_c,
+                    "salle_id":    int(s_c) if s_c.isdigit() else None,
+                    "heure_debut": hd_c,
+                    "heure_fin":   hf_c,
+                })
+            i += 1
+
+        errors = {}
+        if not titre:       errors["titre"]      = "Le titre est obligatoire."
+        if not description: errors["description"] = "La description est obligatoire."
+        if not date_debut_str: errors["date_debut"] = "La date de début est obligatoire."
+        if not date_fin_str:   errors["date_fin"]   = "La date de fin est obligatoire."
+        if not creneaux:    errors["creneaux"]   = "Veuillez définir au moins un créneau horaire."
+
+        if errors:
+            flash("Veuillez corriger les erreurs ci-dessous.", "error")
+        else:
+            ge  = GestionEvenement(bd)
+            res = ge.modifier_evenement(evt_id, {
+                "titre":             titre,
+                "description":       description,
+                "date_debut":        date.fromisoformat(date_debut_str),
+                "date_fin":          date.fromisoformat(date_fin_str),
+                "creneaux":          creneaux,
                 "public_cible_type": pc_type,
                 "public_cible_id":   pc_id,
                 "public_cible_ids":  pc_ids,
             })
-            flash("Événement modifié.", "success")
-            return redirect(url_for("evenements_liste"))
-        flash("Tous les champs sont obligatoires.", "error")
+            if res.get("conflit"):
+                c = res["conflit"]
+                t = c.get("type", "")
+                if t == "periode":
+                    errors["global"] = c["label"]
+                else:
+                    errors["creneaux"] = f"Conflit : {t} « {c['label']} » ({c.get('heure_debut','')}–{c.get('heure_fin','')})."
+                flash("Veuillez corriger les erreurs ci-dessous.", "error")
+            else:
+                flash("Événement modifié.", "success")
+                return redirect(url_for("evenements_liste"))
 
     return render_template(
         "evenement_form.html", active="evenements",
         salles=list(salles_dict.values()),
         ecoles_filieres=ecoles_filieres,
         unites_json=unites_json,
+        creneaux_json=json.dumps(creneaux_existants),
         evt=evt,
         today=date.today().isoformat(),
         role=session.get("user_role"),
+        errors=locals().get("errors", {}),
     )
+
+
+@app.route("/api/evenements/verifier-conflits", methods=["POST"])
+@login_required
+def api_evenements_verifier_conflits():
+    bd, _, salles_dict, _ = get_data()
+    data      = request.get_json(force=True) or {}
+    creneaux  = data.get("creneaux", [])
+    evt_id    = data.get("evt_id")
+
+    conflits = []
+    for c in creneaux:
+        if not all([c.get("date"), c.get("salle_id"), c.get("heure_debut"), c.get("heure_fin")]):
+            continue
+        try:
+            c_date = date.fromisoformat(c["date"])
+        except (ValueError, TypeError):
+            continue
+        conflit = bd.verifier_conflit_planning(
+            c["salle_id"], c_date, c["heure_debut"], c["heure_fin"],
+            exclure_evt_id=evt_id,
+        )
+        if conflit:
+            salle     = salles_dict.get(c["salle_id"])
+            salle_nom = salle.nom if salle else str(c["salle_id"])
+            conflits.append({
+                "message": (
+                    f"Conflit : {salle_nom} le {c['date']} de {c['heure_debut']}"
+                    f" à {c['heure_fin']} avec {conflit['type']} « {conflit['label']} »"
+                )
+            })
+
+    return jsonify({"conflits": conflits})
 
 
 @app.route("/evenements/<int:evt_id>/valider", methods=["POST"])

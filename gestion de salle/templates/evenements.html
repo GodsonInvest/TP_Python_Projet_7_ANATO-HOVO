@@ -77,10 +77,35 @@
       </div>
       <div class="text-right shrink-0">
         <p class="text-sm font-semibold text-slate-700">{{ evt.date_debut }}{% if evt.date_debut != evt.date_fin %} → {{ evt.date_fin }}{% endif %}</p>
-        <p class="text-xs text-slate-400">{{ evt.heure_debut }}–{{ evt.heure_fin }}</p>
-        <p class="text-xs text-slate-500 mt-0.5">{{ salle.nom if salle else '—' }}</p>
+        {% if evt.creneaux %}
+          {% set nb = evt.creneaux | length %}
+          <p class="text-xs text-slate-400">{{ nb }} créneau{{ 'x' if nb > 1 else '' }}</p>
+        {% elif evt.heure_debut %}
+          <p class="text-xs text-slate-400">{{ evt.heure_debut }}–{{ evt.heure_fin }}</p>
+          {% if salle %}<p class="text-xs text-slate-500 mt-0.5">{{ salle.nom }}</p>{% endif %}
+        {% endif %}
       </div>
     </div>
+
+    <!-- Créneaux par jour -->
+    {% if evt.creneaux %}
+    <div class="border-t border-slate-100 px-6 py-3 bg-slate-50/30">
+      <div class="space-y-1">
+        {% for date_j, groupe in evt.creneaux | groupby('date') %}
+        <div class="flex items-start gap-3 text-xs">
+          <span class="text-slate-500 font-medium w-24 shrink-0">{{ date_j }}</span>
+          <span class="text-slate-700">
+            {% for c in groupe %}
+              {% set s = salles_dict.get(c.salle_id) %}
+              {{ c.heure_debut }}–{{ c.heure_fin }}{% if s %} <span class="text-slate-400">({{ s.nom }})</span>{% endif %}
+              {%- if not loop.last %} <span class="text-slate-300 mx-1">|</span> {% endif %}
+            {% endfor %}
+          </span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Motif de refus -->
     {% if evt.statut == 'refuse' and evt.motif_refus %}
